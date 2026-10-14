@@ -1,0 +1,13 @@
+node_modules
+dist
+*.local
+.env
+.venv
+__pycache__
+.pytest_cache
+.ruff_cache
+server/public
+# Artefatos de modelo treinado (ai/training/train.py): gerados, não fonte — versione via
+# storage de artefato, não git. .gitkeep mantém a pasta.
+ai/models/*
+!ai/models/.gitkeep

@@ -1,0 +1,125 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1790038178877,
+      "tag": "0000_conscious_night_thrasher",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1790069814365,
+      "tag": "0001_blushing_tattoo",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1790130230468,
+      "tag": "0002_dominio_condominio",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1790158457668,
+      "tag": "0003_agendamento_regra_unica",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1790204081192,
+      "tag": "0004_vehicle_plate",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1790216669108,
+      "tag": "0005_cobranca",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1790251751964,
+      "tag": "0006_reservation_occupied_from",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1790252877862,
+      "tag": "0007_station_image_url",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1790254977626,
+      "tag": "0008_fotos_fiap",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1790256364651,
+      "tag": "0009_foto_aclimacao",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1790282183576,
+      "tag": "0010_foto_aurora",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1790973736230,
+      "tag": "0011_workspaces",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1790973794774,
+      "tag": "0012_workspaces_constraints",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1791503703455,
+      "tag": "0013_cpf_cnpj",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1791505643321,
+      "tag": "0014_payment_event",
+      "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "7",
+      "when": 1791891941480,
+      "tag": "0015_sems_power_point",
+      "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1791946954208,
+      "tag": "0016_lancamentos_ciclo",
+      "breakpoints": true
+    }
+  ]
+}

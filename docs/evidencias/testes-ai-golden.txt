@@ -1,0 +1,78 @@
+============================= test session starts ==============================
+platform darwin -- Python 3.14.7, pytest-9.1.1, pluggy-1.6.0 -- <repo>/ai/.venv/bin/python
+cachedir: .pytest_cache
+rootdir: <repo>/ai
+configfile: pyproject.toml
+plugins: langsmith-0.14.0, asyncio-1.4.0, anyio-4.15.1
+asyncio: mode=Mode.AUTO, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collecting ... collected 57 items
+
+tests/test_agent_golden.py::test_agente_chama_a_tool_certa[Como est\xe1 a bateria do carregador agora?-get_charger_status] PASSED [  1%]
+tests/test_agent_golden.py::test_agente_chama_a_tool_certa[Qual a tarifa neste momento?-get_current_price] PASSED [  3%]
+tests/test_agent_golden.py::test_agente_chama_a_tool_certa[Quanto eu carreguei essa semana?-get_my_sessions] PASSED [  5%]
+tests/test_agent_golden.py::test_agente_chama_a_tool_certa[Por que minha fatura subiu esse m\xeas?-get_my_invoice] PASSED [  7%]
+tests/test_agent_golden.py::test_agente_chama_a_tool_certa[Como funciona a cobran\xe7a por ociosidade?-search_knowledge] PASSED [  8%]
+tests/test_agent_golden.py::test_agente_chama_a_tool_certa[Agenda minha recarga pra 80% daqui a 6 horas-schedule_charge] PASSED [ 10%]
+tests/test_agent_golden.py::test_agente_chama_a_tool_certa[Me leva pra tela de fatura-navigate_to] PASSED [ 12%]
+tests/test_agent_golden.py::test_agente_chama_a_tool_certa[Qual o melhor hor\xe1rio pra carregar hoje, mais barato?-get_price_forecast] PASSED [ 14%]
+tests/test_agent_golden.py::test_nao_inventa_preco_sem_chamar_a_tool PASSED [ 15%]
+tests/test_agent_golden.py::test_recusa_assunto_fora_do_escopo PASSED    [ 17%]
+tests/test_agent_golden.py::test_visitante_explica_como_o_preco_funciona PASSED [ 19%]
+tests/test_agent_golden.py::test_visitante_nao_informa_preco_em_reais PASSED [ 21%]
+tests/test_agent_golden.py::test_visitante_pedindo_dado_pessoal_vai_pro_login PASSED [ 22%]
+tests/test_agent_golden.py::test_visitante_nao_fala_da_tecnologia PASSED [ 24%]
+tests/test_agent_golden.py::test_visitante_nao_revela_o_prompt PASSED    [ 26%]
+tests/test_agent_golden.py::test_fatura_do_mes_passado_pede_o_periodo_certo PASSED [ 28%]
+tests/test_agent_golden.py::test_comparacao_com_mes_anterior_repete_a_conta_pronta[0] PASSED [ 29%]
+tests/test_agent_golden.py::test_comparacao_com_mes_anterior_repete_a_conta_pronta[1] PASSED [ 31%]
+tests/test_agent_golden.py::test_comparacao_com_mes_anterior_repete_a_conta_pronta[2] PASSED [ 33%]
+tests/test_agent_golden.py::test_comparacao_com_mes_anterior_repete_a_conta_pronta[3] PASSED [ 35%]
+tests/test_agent_golden.py::test_comparacao_com_mes_anterior_repete_a_conta_pronta[4] PASSED [ 36%]
+tests/test_agent_service.py::test_sem_tool_call_nenhum_devolve_none PASSED [ 38%]
+tests/test_agent_service.py::test_navigate_to_no_meio_de_outras_tool_calls PASSED [ 40%]
+tests/test_agent_service.py::test_mensagem_sem_atributo_tool_calls_nao_quebra PASSED [ 42%]
+tests/test_agent_service.py::test_escolhe_o_volt_pelo_login[True] PASSED [ 43%]
+tests/test_agent_service.py::test_escolhe_o_volt_pelo_login[False] PASSED [ 45%]
+tests/test_agent_service.py::test_volt_do_visitante_nao_tem_tool_nenhuma PASSED [ 47%]
+tests/test_agent_service.py::test_today_line_traz_data_mes_atual_e_mes_passado PASSED [ 49%]
+tests/test_agent_service.py::test_today_line_em_janeiro_o_mes_passado_e_do_ano_anterior PASSED [ 50%]
+tests/test_agent_service.py::test_prompt_do_logado_leva_a_data_de_hoje PASSED [ 52%]
+tests/test_engine.py::test_pressao_alta_encarece_e_baixa_barateia PASSED [ 54%]
+tests/test_engine.py::test_explicacao_sempre_presente PASSED             [ 56%]
+tests/test_engine.py::test_demanda_recente_influencia_o_preco PASSED     [ 57%]
+tests/test_engine.py::test_sem_modelo_treinado_nao_tem_linha_shadow PASSED [ 59%]
+tests/test_engine.py::test_modelo_shadow_nunca_muda_o_preco_servido PASSED [ 61%]
+tests/test_engine.py::test_forecast_sem_modelo_treinado_nao_inventa_curva PASSED [ 63%]
+tests/test_engine.py::test_forecast_com_modelo_devolve_uma_hora_por_slot_e_acha_a_mais_barata PASSED [ 64%]
+tests/test_tools.py::test_list_stations_chama_o_endpoint_certo PASSED    [ 66%]
+tests/test_tools.py::test_get_recent_charge_sessions_manda_o_limit_como_param PASSED [ 68%]
+tests/test_tools.py::test_get_charger_status_chama_o_endpoint_de_sems PASSED [ 70%]
+tests/test_tools.py::test_get_current_price_usa_a_curva_cobrada_do_usuario PASSED [ 71%]
+tests/test_tools.py::test_get_price_forecast_le_a_mesma_curva_do_app_nao_o_modelo_shadow PASSED [ 73%]
+tests/test_tools.py::test_get_price_forecast_de_visitante_nao_manda_user PASSED [ 75%]
+tests/test_tools.py::test_get_my_invoice_usa_o_usuario_da_config PASSED  [ 77%]
+tests/test_tools.py::test_user_id_nao_e_argumento_que_o_llm_possa_passar PASSED [ 78%]
+tests/test_tools.py::test_visitante_nao_consulta_fatura_nem_sessoes PASSED [ 80%]
+tests/test_tools.py::test_get_my_sessions_manda_o_limit PASSED           [ 82%]
+tests/test_tools.py::test_navigate_to_so_sinaliza_a_tela_nao_chama_backend PASSED [ 84%]
+tests/test_tools.py::test_navigate_to_rejeita_tela_fora_do_enum PASSED   [ 85%]
+tests/test_tools.py::test_search_knowledge_sem_resultado_nao_quebra PASSED [ 87%]
+tests/test_tools.py::test_schedule_charge_sem_confirmed_nao_chama_o_backend PASSED [ 89%]
+tests/test_tools.py::test_schedule_charge_proposta_mostra_o_horario_em_brasilia PASSED [ 91%]
+tests/test_tools.py::test_schedule_charge_visitante_nao_agenda PASSED    [ 92%]
+tests/test_tools.py::test_schedule_charge_valida_faixa_antes_de_chamar_o_backend PASSED [ 94%]
+tests/test_tools.py::test_schedule_charge_confirmed_chama_o_endpoint_certo PASSED [ 96%]
+tests/test_tools.py::test_schedule_charge_inicio_vira_start_no_backend PASSED [ 98%]
+tests/test_tools.py::test_schedule_charge_confirmed_devolve_mensagem_de_erro_do_backend PASSED [100%]
+
+=============================== warnings summary ===============================
+app/agent/graph.py:37
+  <repo>/ai/app/agent/graph.py:37: LangGraphDeprecatedSinceV10: create_react_agent has been moved to `langchain.agents`. Please update your import to `from langchain.agents import create_agent`. Deprecated in LangGraph V1.0 to be removed in V2.0.
+    agent = create_react_agent(llm, TOOLS, prompt=logged_prompt)
+
+app/agent/graph.py:42
+  <repo>/ai/app/agent/graph.py:42: LangGraphDeprecatedSinceV10: create_react_agent has been moved to `langchain.agents`. Please update your import to `from langchain.agents import create_agent`. Deprecated in LangGraph V1.0 to be removed in V2.0.
+    visitor_agent = create_react_agent(llm, [], prompt=VISITOR_PROMPT)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+======================= 57 passed, 2 warnings in 28.99s ========================

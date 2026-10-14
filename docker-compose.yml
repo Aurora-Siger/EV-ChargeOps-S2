@@ -1,0 +1,116 @@
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: evchargeops-db
+    environment:
+      POSTGRES_DB: evchargeops
+      POSTGRES_USER: evcharge
+      POSTGRES_PASSWORD: evcharge
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U evcharge -d evchargeops"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - evcharge
+
+  server:
+    build:
+      context: .
+      dockerfile: server/Dockerfile.dev
+    container_name: evchargeops-server
+    # Asaas e demais segredos vêm de server/.env (o `environment` abaixo tem prioridade). A chave do
+    # Asaas começa com `$`: nesse arquivo ela fica entre aspas simples (ASAAS_API_KEY='$aact_...').
+    env_file:
+      - path: server/.env
+        required: false
+    environment:
+      NODE_ENV: development
+      PORT: 3000
+      DATABASE_URL: postgresql://evcharge:evcharge@postgres:5432/evchargeops
+      BETTER_AUTH_URL: http://localhost:3000
+      BETTER_AUTH_SECRET: dev-secret-key-change-in-production
+      # O navegador abre o front em :5173; o Vite repassa /api para cá.
+      WEB_ORIGIN: http://localhost:5173
+      AI_SERVICE_URL: http://ai:8000
+      # env.ts exige 32+ caracteres; o ai recebe o mesmo valor.
+      AI_INTERNAL_TOKEN: ${AI_INTERNAL_TOKEN:-dev-internal-token-troque-em-producao-32}
+      SEMS_ACCOUNT: ${SEMS_ACCOUNT:-dev-account}
+      SEMS_PASSWORD: ${SEMS_PASSWORD:-dev-password}
+      # env.ts exige 16+ caracteres.
+      ADMIN_KEY: ${ADMIN_KEY:-dev-admin-key-local-only}
+      # Primeiro login do app (criado pelo migrate.ts se ainda não existir).
+      SUPER_ADMIN_EMAIL: ${SUPER_ADMIN_EMAIL:-admin@exemplo.com}
+      SUPER_ADMIN_PASSWORD: ${SUPER_ADMIN_PASSWORD:-senha-forte-123}
+    ports:
+      - "3000:3000"
+    volumes:
+      # WORKDIR do server/Dockerfile.dev é /app (código em /app/src).
+      - ./server/src:/app/src
+      - ./server/drizzle:/app/drizzle
+      - server_node_modules:/app/node_modules
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - evcharge
+
+  ai:
+    build:
+      context: ./ai
+      dockerfile: Dockerfile.dev
+    container_name: evchargeops-ai
+    environment:
+      DATABASE_URL: postgresql+psycopg://evcharge:evcharge@postgres:5432/evchargeops
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-sk-test-key-set-env-var}
+      AI_INTERNAL_TOKEN: ${AI_INTERNAL_TOKEN:-dev-internal-token-troque-em-producao-32}
+      BACKEND_URL: http://server:3000
+      PORT: 8000
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./ai/app:/app/app
+      - ./ai/migrations:/app/migrations
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - evcharge
+
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    container_name: evchargeops-frontend
+    environment:
+      # Dentro do container, localhost é o próprio front: o proxy do Vite vai para o server.
+      API_PROXY_TARGET: http://server:3000
+      VITE_CARTO_API_KEY: ${VITE_CARTO_API_KEY:-}
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./src:/app/src
+      - ./public:/app/public
+      - ./index.html:/app/index.html
+      - ./vite.config.ts:/app/vite.config.ts
+      - ./tsconfig.json:/app/tsconfig.json
+      - ./tsconfig.app.json:/app/tsconfig.app.json
+      - ./tsconfig.node.json:/app/tsconfig.node.json
+      - frontend_node_modules:/app/node_modules
+    depends_on:
+      - server
+    networks:
+      - evcharge
+
+volumes:
+  postgres_data:
+  server_node_modules:
+  frontend_node_modules:
+
+networks:
+  evcharge:
+    driver: bridge

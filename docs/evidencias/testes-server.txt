@@ -1,0 +1,101 @@
+ ✓ src/modules/sems/domain/power.test.ts > parsePowerSeries > converte o horário local para UTC e ignora o ponto sem medida
+ ✓ src/modules/sems/domain/power.test.ts > parsePowerSeries > resposta sem pEvChar ou vazia vira lista vazia
+ ✓ src/modules/sems/domain/power.test.ts > formatSemsLocal > é o inverso do horário local da SEMS
+ ✓ src/modules/sems/domain/power.test.ts > chargingFromPower > potência recente acima de zero é carga
+ ✓ src/modules/sems/domain/power.test.ts > chargingFromPower > sem ponto recente não sabe dizer
+ ✓ src/modules/sems/domain/power.test.ts > liveFromTelemetry > detail congelado em "cabo fora" com potência recente vira carregando, sem SOC
+ ✓ src/modules/sems/domain/power.test.ts > liveFromTelemetry > sem potência, vale o detail
+ ✓ src/modules/sems/domain/power.test.ts > liveFromTelemetry > vehConnStu corrige o detail congelado: 1 é plugado sem carregar, 2 é carregando
+ ✓ src/modules/sems/domain/power.test.ts > liveFromTelemetry > detail carregando mantém o SOC dele
+ ✓ src/modules/sems/domain/power.test.ts > liveFromTelemetry > carregando com a sessão em andamento traz tempo, energia, autonomia e potência de agora
+ ✓ src/modules/sems/domain/power.test.ts > liveFromTelemetry > sessão que já terminou há tempo não conta como a de agora
+ ✓ src/modules/sems/domain/power.test.ts > liveFromTelemetry > sem detail nem potência, null
+ ✓ src/modules/sems/domain/power.test.ts > alignToPowerStep > leva a janela para o múltiplo de 5 min, senão a GoodWe devolve só null
+ ✓ src/modules/reservations/domain/scheduling.test.ts > windowCostCents > soma meia hora a meia hora
+ ✓ src/modules/reservations/domain/scheduling.test.ts > windowCostCents > null se a curva não cobre o período inteiro
+ ✓ src/modules/reservations/domain/scheduling.test.ts > cheapestWindow > acha a janela mais barata livre dentro do prazo
+ ✓ src/modules/reservations/domain/scheduling.test.ts > cheapestWindow > respeita conflito de horário (janela barata ocupada vira peak)
+ ✓ src/modules/reservations/domain/scheduling.test.ts > cheapestWindow > null quando o prazo é curto demais pra energia necessária
+ ✓ src/modules/reservations/domain/scheduling.test.ts > cheapestWindow > null sem curva
+ ✓ src/modules/reservations/domain/scheduling.test.ts > cheapestWindow > começa agora quando a próxima hora cheia já não cabe no prazo
+ ✓ src/modules/reservations/domain/scheduling.test.ts > startSlots > hoje: "agora" primeiro, depois só horas cheias futuras
+ ✓ src/modules/reservations/domain/scheduling.test.ts > startSlots > "agora" em hora cheia não repete a mesma hora
+ ✓ src/modules/reservations/domain/scheduling.test.ts > startSlots > dia futuro: 24 horas cheias, sem "agora"
+ ✓ src/modules/reservations/domain/scheduling.test.ts > startSlots > ocupado se a janela inteira (não só o início) bate com outra reserva
+ ✓ src/modules/reservations/domain/scheduling.test.ts > startSlots > "agora" fica ocupado com carro na tomada; as próximas horas não
+ ✓ src/modules/reservations/domain/scheduling.test.ts > startSlots > some com o horário cuja janela não cabe no funcionamento da estação
+ ✓ src/modules/reservations/domain/scheduling.test.ts > startSlots > nível e custo pela janela inteira; custo null onde a curva acaba
+ ✓ src/modules/reservations/domain/scheduling.test.ts > recommendedForDeadline > entre preços iguais, o início mais perto do prazo, com uma hora de folga
+ ✓ src/modules/reservations/domain/scheduling.test.ts > recommendedForDeadline > aceita até 10% acima do mais barato pra começar mais tarde
+ ✓ src/modules/reservations/domain/scheduling.test.ts > recommendedForDeadline > sem folga, o mais barato que ainda termina no prazo; nada se nenhum termina
+ ✓ src/infra/payments/payments.test.ts > Pix copia e cola (BR Code) > CRC16 bate com o exemplo do manual do BCB
+ ✓ src/infra/payments/payments.test.ts > Pix copia e cola (BR Code) > monta os campos EMV com valor, nome sem acento e CRC no fim
+ ✓ src/infra/payments/payments.test.ts > boleto > fator de vencimento reinicia em 1000 depois de 21/02/2025
+ ✓ src/infra/payments/payments.test.ts > boleto > linha digitável carrega os dígitos verificadores de cada campo e o geral
+ ✓ src/infra/payments/payments.test.ts > gateway simulado > Pix vence no fim do dia do vencimento, no horário do condomínio
+ ✓ src/infra/payments/payments.test.ts > gateway simulado > boleto sai com banco fictício 999
+ ✓ src/infra/payments/payments.test.ts > BR Code com descrição longa > corta a descrição para o campo 26 não passar de 99 caracteres
+ ✓ src/modules/workspaces/domain/permissions.test.ts > painel do condomínio > superadmin e admin entram; usuário comum não
+ ✓ src/modules/workspaces/domain/permissions.test.ts > quem cria quem > superadmin cria admin e usuário
+ ✓ src/modules/workspaces/domain/permissions.test.ts > quem cria quem > admin cria só usuário comum
+ ✓ src/modules/workspaces/domain/permissions.test.ts > quem cria quem > usuário comum não cria ninguém
+ ✓ src/modules/workspaces/domain/permissions.test.ts > gerenciar vínculos > admin gerencia usuário comum, mas não outro admin nem a si mesmo
+ ✓ src/modules/workspaces/domain/permissions.test.ts > gerenciar vínculos > superadmin gerencia qualquer um
+ ✓ src/modules/workspaces/domain/permissions.test.ts > gerenciar vínculos > admin não promove ninguém a admin; superadmin promove
+ ✓ src/modules/workspaces/domain/permissions.test.ts > gerenciar vínculos > ninguém troca o próprio papel
+ ✓ src/modules/workspaces/domain/permissions.test.ts > conta (nome e senha) > admin edita a conta de quem só existe no condomínio dele
+ ✓ src/modules/workspaces/domain/permissions.test.ts > conta (nome e senha) > admin não edita a conta de quem também está em outro condomínio
+ ✓ src/modules/workspaces/domain/permissions.test.ts > conta (nome e senha) > cada um edita a própria conta; superadmin edita qualquer uma
+ ✓ src/modules/workspaces/domain/permissions.test.ts > cargo do admin > admin precisa de cargo; usuário comum fica sem
+ ✓ src/modules/billing/domain/rateio.test.ts > priceSession > aplica o mult na energia e na ociosidade além da carência
+ ✓ src/modules/billing/domain/rateio.test.ts > priceSession > ociosidade dentro da carência é grátis
+ ✓ src/modules/billing/domain/rateio.test.ts > computeCycle > divide o custo fixo só entre ativos e isenta quem não carregou
+ ✓ src/modules/billing/domain/rateio.test.ts > computeCycle > excedente vira crédito na parcela fixa, travado em zero e no valor da parcela
+ ✓ src/modules/billing/domain/rateio.test.ts > computeCycle > convidado paga só o consumo e o excedente dele abate o custo fixo dos moradores
+ ✓ src/modules/billing/domain/rateio.test.ts > computeCycle > convidado sozinho no ciclo não paga custo fixo
+ ✓ src/modules/billing/domain/rateio.test.ts > computeCycle > ajuste do gestor entra só na fatura da pessoa, sem mexer em quem é ativo
+ ✓ src/modules/billing/domain/rateio.test.ts > computeCycle > crédito maior que a fatura zera a fatura, sem valor negativo
+ ✓ src/modules/billing/domain/rateio.test.ts > computeCycle > splitEvenly soma exatamente o total
+ ✓ src/demo/generator.test.ts > generateSessions > é reproduzível pela seed
+ ✓ src/demo/generator.test.ts > generateSessions > nunca sobrepõe duas sessões (nem a ociosidade) no mesmo carregador
+ ✓ src/demo/generator.test.ts > generateSessions > respeita o período, o fim e o hábito de cada morador
+ ✓ src/demo/generator.test.ts > generateSessions > repete a captura real sem alterar energia nem duração
+ ✓ src/demo/generator.test.ts > generateSessions > sem replay, é tudo sintético
+ ✓ src/demo/generator.test.ts > telemetry > a ociosidade lida de volta da telemetria bate com a gerada (precisão do poll)
+ ✓ src/modules/sessions/domain/idle.test.ts > pluggedFromTelemetry > lê os estados que a SEMS manda
+ ✓ src/modules/sessions/domain/idle.test.ts > pluggedFromTelemetry > vehConnStu vale mais que o workState congelado em "cabo fora"
+ ✓ src/modules/sessions/domain/idle.test.ts > idleMinutes > conta do fim da carga até o último status ainda plugado
+ ✓ src/modules/sessions/domain/idle.test.ts > idleMinutes > cabo tirado antes do primeiro poll = zero (nunca cobra pelo que não viu)
+ ✓ src/modules/sessions/domain/idle.test.ts > idleMinutes > para na chegada do próximo carro
+ ✓ src/modules/sessions/domain/idle.test.ts > idleMinutes > ignora estados desconhecidos e o que veio antes do fim da sessão
+ ✓ src/modules/sessions/domain/idle.test.ts > idleMinutes > tem teto quando o cabo nunca aparece saindo
+ ✓ src/modules/reservations/domain/opening.test.ts > parseOpeningHours > lê faixa de dias e de horas
+ ✓ src/modules/reservations/domain/opening.test.ts > parseOpeningHours > sem faixa de dias = todo dia
+ ✓ src/modules/reservations/domain/opening.test.ts > parseOpeningHours > "24h", vazio ou ilegível = sempre aberto (null)
+ ✓ src/modules/reservations/domain/opening.test.ts > fitsOpening > janela inteira dentro do horário
+ ✓ src/modules/reservations/domain/opening.test.ts > fitsOpening > começa antes de abrir ou termina depois de fechar
+ ✓ src/modules/reservations/domain/opening.test.ts > fitsOpening > dia fechado
+ ✓ src/modules/reservations/domain/opening.test.ts > fitsOpening > null = sempre cabe
+ ✓ src/modules/billing/domain/demand.test.ts > linearForecast > reproduz o exemplo do README (sextas às 18h)
+ ✓ src/modules/billing/domain/demand.test.ts > linearForecast > sem histórico é neutro
+ ✓ src/modules/billing/domain/demand.test.ts > occupiedFraction > mede só a parte da hora coberta pela sessão
+ ✓ src/modules/billing/domain/demand.test.ts > predictDemand > slot sempre ocupado vira demanda 1 e mult no teto
+ ✓ src/modules/billing/domain/demand.test.ts > predictDemand > slot nunca usado vira desconto máximo
+ ✓ src/modules/billing/domain/demand.test.ts > predictDemand > semana antes do início do histórico não conta como demanda zero
+ ✓ src/modules/billing/domain/demand.test.ts > priceCurve > preço = tarifa base × mult
+ ✓ src/modules/billing/domain/comparison.test.ts > compareWithPrevious > mês aberto abaixo do anterior (o setembro da Ana): diz quanto a menos e que é parcial
+ ✓ src/modules/billing/domain/comparison.test.ts > compareWithPrevious > mês fechado acima do anterior
+ ✓ src/modules/billing/domain/comparison.test.ts > compareWithPrevious > mesmo valor
+ ✓ src/modules/billing/domain/comparison.test.ts > compareWithPrevious > janeiro compara com dezembro do ano anterior
+ ✓ src/modules/billing/domain/comparison.test.ts > compareWithPrevious > sem fatura no mês anterior ou neste mês: null
+ ✓ src/modules/agent/rateLimit.test.ts > createRateLimiter > deixa passar até o máximo na janela e barra a seguinte
+ ✓ src/modules/agent/rateLimit.test.ts > createRateLimiter > janela nova zera o contador
+ ✓ src/modules/agent/rateLimit.test.ts > createRateLimiter > cada chave conta separado
+ ✓ src/modules/agent/rateLimit.test.ts > clientIp > prefere o IP que o Cloudflare manda
+ ✓ src/modules/agent/rateLimit.test.ts > clientIp > sem Cloudflare, usa o primeiro do X-Forwarded-For
+ ✓ src/modules/agent/rateLimit.test.ts > clientIp > sem cabeçalho nenhum, null
+ ✓ src/modules/pricing/rules/rulesStrategy.test.ts > rulesStrategy > aplica ágio no horário de pico
+ ✓ src/modules/pricing/rules/rulesStrategy.test.ts > applyGuardrails > respeita o teto
+ ✓ src/modules/pricing/rules/rulesStrategy.test.ts > applyGuardrails > limita o salto entre decisões
+ Test Files  12 passed (12)
+      Tests  99 passed (99)

@@ -1,0 +1,1 @@
+ALTER TABLE "reservation" ADD COLUMN "occupied_from_at" timestamp;

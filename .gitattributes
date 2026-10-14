@@ -1,0 +1,5 @@
+# Scripts que rodam dentro de container precisam de LF: com CRLF o shebang quebra
+# ("exec format error" / "bad interpreter") em checkout Windows.
+*.sh text eol=lf
+docker-entrypoint.sh text eol=lf
+Dockerfile text eol=lf

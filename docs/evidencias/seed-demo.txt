@@ -1,0 +1,11 @@
+# Comando: cd server && npm run seed:demo -- --password <senha>
+
+Gerando 8 semanas, seed 42: 65 sessões de 4 moradores.
+  Apto 101 · Ana Ribeiro (ana@demo.evchargeops.app): chega do trabalho e carrega no pico da noite (é o padrão real do carregador da FIAP)
+  Apto 202 · Bruno Costa (bruno@demo.evchargeops.app): trabalha de casa e carrega de manhã, fora do pico
+  Apto 303 · Carla Mendes (carla@demo.evchargeops.app): carrega no fim de semana à tarde
+  Apto 404 · Diego Alves (diego@demo.evchargeops.app): carrega no começo da noite e esquece o carro plugado (gera ociosidade)
+65 sessões em sems_charge_log e 16385 status em sems_snapshot.
+Ociosidade: R$ 0.10/min depois de 15 min de carência.
+Sync: 65 sessões importadas, 65 precificadas.
+Ciclo 2026-09 fechado: 4 faturas.

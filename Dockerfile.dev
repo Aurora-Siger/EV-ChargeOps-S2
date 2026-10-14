@@ -1,0 +1,19 @@
+FROM node:24-alpine
+
+WORKDIR /app
+
+# Copiar package files
+COPY package.json package-lock.json ./
+
+# Instalar dependências
+RUN npm ci
+
+# Copiar código e configuração
+COPY index.html vite.config.ts tsconfig.json tsconfig.app.json tsconfig.node.json ./
+COPY public ./public
+COPY src ./src
+
+EXPOSE 5173
+
+# Hot reload com Vite dev server - escuta em 0.0.0.0 para ser acessível do host
+CMD ["/app/node_modules/.bin/vite", "--host", "0.0.0.0"]

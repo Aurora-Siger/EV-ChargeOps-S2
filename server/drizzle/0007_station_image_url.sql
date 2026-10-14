@@ -1,0 +1,1 @@
+ALTER TABLE "station" ADD COLUMN "image_url" text;

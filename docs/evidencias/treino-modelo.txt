@@ -1,0 +1,6 @@
+# Banco local com o seed de demonstração (npm run seed:demo -- --password ...)
+# Comando: cd ai && python -m training.train
+
+Lendo public.sems_snapshot (telemetria real do carregador da FIAP)…
+MAE do modelo: 0.0727 · MAE do baseline ingênuo (média): 0.0882
+Artefato salvo em ./ai/models/ai-demand-v1.joblib — o motor (app/pricing/engine.py) carrega isso em SHADOW automaticamente (loga a previsão, não decide o preço). Promoção é manual.

@@ -1,0 +1,14 @@
+# Contexto de build = ai/ (Coolify: Base Directory "/ai").
+.venv
+__pycache__
+**/__pycache__
+*.pyc
+.env
+.env.*
+.pytest_cache
+.ruff_cache
+# Fora da imagem: artefatos de modelo treinados localmente e os testes.
+# training/ NÃO entra aqui: o treino roda dentro do próprio container de produção
+# (sem outro jeito de levar um .joblib treinado localmente até lá — ver ai/Dockerfile).
+models
+tests

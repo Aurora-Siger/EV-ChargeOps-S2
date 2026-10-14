@@ -1,0 +1,36 @@
+{
+  "name": "evchargeops-server",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/main.ts",
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/main.js",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "db:studio": "drizzle-kit studio",
+    "seed:demo": "tsx src/seedDemoData.ts",
+    "auth:schema": "npx @better-auth/cli generate --config src/infra/auth/auth.ts"
+  },
+  "dependencies": {
+    "@hono/node-server": "^1.13.0",
+    "better-auth": "^1.7.0",
+    "drizzle-orm": "^0.45.2",
+    "hono": "^4.6.0",
+    "pg": "^8.13.0",
+    "playwright": "1.49.0",
+    "qrcode": "^1.5.4",
+    "zod": "^3.23.0"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.2",
+    "@types/pg": "^8.11.0",
+    "@types/qrcode": "^1.5.6",
+    "drizzle-kit": "^0.31.0",
+    "tsx": "^4.19.0",
+    "typescript": "~5.6.0",
+    "vitest": "^2.1.0"
+  }
+}
