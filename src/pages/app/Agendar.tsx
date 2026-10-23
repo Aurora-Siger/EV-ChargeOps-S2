@@ -174,18 +174,13 @@ export default function Agendar({ go }: { go: (t: Tab) => void }) {
   // "já plugado": prazo é daqui a N horas
   const deadlineAtNow = new Date(nowMs + hoursNow * HOUR_MS)
 
-  // Bateria agora (também usada pelo "começar agora" do agendamento, que sempre pergunta).
-  const [socNow, setSocNow] = useState(20)
-  // Plugado mas sem bateria na telemetria (a GoodWe às vezes só informa a carga): o morador diz quanto tem.
-  const liveSoc = telemetrySoc ?? (pluggedIn ? socNow : null)
-  const socAsked = pluggedIn && telemetrySoc === null
-  const targetsNow = liveSoc !== null ? availableTargets(liveSoc) : []
+  // A tela nunca pergunta a bateria atual (o morador nem sempre sabe): vale a da telemetria; sem
+  // ela, o servidor estima e ajusta o fim da carga quando o carregador ler a bateria.
+  const liveSoc = telemetrySoc
+  const targetsNow = liveSoc !== null ? availableTargets(liveSoc) : TARGETS
   const activeTargetNow = targetsNow.includes(target) ? target : (targetsNow[0] ?? 100)
-  // Começando "agora", o morador informa a bateria atual (a conta sai dela, não dos 20% assumidos).
-  // Horário futuro não pergunta: até lá a bateria muda.
-  const startingNow = slotPick === 'now'
-  const targetsLater = startingNow ? availableTargets(socNow) : TARGETS
-  const activeTargetLater = targetsLater.includes(target) ? target : (targetsLater[0] ?? 100)
+  // horário futuro também não pergunta: até lá a bateria muda
+  const activeTargetLater = target
 
   // Onde dá pra reservar: o condomínio do morador e os parceiros da rede (mais perto primeiro).
   // "Own" usa o mesmo sinal do "já plugado" acima (o carregador de `me.charger`) — não
@@ -217,8 +212,6 @@ export default function Agendar({ go }: { go: (t: Tab) => void }) {
           targetSoc: String(activeTargetLater),
           from: days[0].start.toISOString(),
           to: days[DAYS_AHEAD - 1].end.toISOString(),
-          // só na confirmação: mexer no slider da bateria (passo 2) não refaz a busca a cada toque
-          ...(startingNow && wizardStep === 3 ? { startSoc: String(socNow) } : {}),
         })}`
       : null
   const starts = useApi<StartSlots>(slotsPath, { pollMs: 60_000 })
@@ -251,7 +244,7 @@ export default function Agendar({ go }: { go: (t: Tab) => void }) {
     : []
 
   const rate = vehicle && charger ? chargeRateKw(vehicle, charger.maxPowerKw) : 0
-  const energyNow = vehicle && liveSoc !== null ? energyNeeded(vehicle, liveSoc, activeTargetNow) : 0
+  const energyNow = vehicle && liveSoc !== null ? energyNeeded(vehicle, liveSoc, activeTargetNow) : null
 
   if (!charger) {
     return (
@@ -347,7 +340,6 @@ export default function Agendar({ go }: { go: (t: Tab) => void }) {
           vehicleId: vehicle.id,
           targetSoc: activeTargetNow,
           deadlineHours: hoursNow,
-          ...(socAsked ? { startSoc: socNow } : {}),
         },
       })
       setDone({ ...r, ...placeOf(home) })
@@ -364,7 +356,6 @@ export default function Agendar({ go }: { go: (t: Tab) => void }) {
           vehicleId: vehicle.id,
           targetSoc: activeTargetLater,
           startsAt: slot.startsAt,
-          ...(slot.now && startingNow ? { startSoc: socNow } : {}),
         },
       })
       setDone({ ...r, ...placeOf(place.station) })
@@ -437,7 +428,7 @@ export default function Agendar({ go }: { go: (t: Tab) => void }) {
         </div>
       )}
 
-      {mode === 'now' && pluggedIn && liveSoc !== null && liveSoc < 99 && (
+      {mode === 'now' && pluggedIn && (liveSoc === null || liveSoc < 99) && (
         <>
           <div className="c">
             <div className="c-label">
@@ -454,25 +445,7 @@ export default function Agendar({ go }: { go: (t: Tab) => void }) {
               )}
             </div>
             <BatteryGauge vehicle={vehicle} soc={liveSoc} target={activeTargetNow} go={go} />
-            {socAsked ? (
-              <div className="soc-now">
-                <div className="soc-now-head">
-                  <span>Bateria agora</span>
-                  <b>{socLabel(vehicle, socNow)}</b>
-                </div>
-                <input
-                  className="cc-range"
-                  type="range"
-                  min={0}
-                  max={95}
-                  step={5}
-                  value={socNow}
-                  onChange={(e) => setSocNow(Number(e.target.value))}
-                  aria-label="Bateria agora"
-                />
-                <div className="hint-line">A telemetria não trouxe a bateria do carro: informa quanto ele tem agora.</div>
-              </div>
-            ) : (
+            {liveSoc !== null && (
               <div className="live-soc">
                 <span className="dot" /> bateria agora <b>{socLabel(vehicle, liveSoc)}</b>
               </div>
@@ -480,7 +453,9 @@ export default function Agendar({ go }: { go: (t: Tab) => void }) {
             <div className="soc-now-meta">Quanto de autonomia você quer</div>
             <TargetChips vehicle={vehicle} active={activeTargetNow} enabled={targetsNow} onPick={setTarget} />
             <div className="hint-line">
-              faltam {fmtKwh(energyNow)} · carrega a {fmtNum(rate)} kW · {rate > 0 ? fmtHours(energyNow / rate) : '—'} de carga
+              {energyNow !== null
+                ? `faltam ${fmtKwh(energyNow)} · carrega a ${fmtNum(rate)} kW · ${rate > 0 ? fmtHours(energyNow / rate) : '—'} de carga`
+                : `carrega a ${fmtNum(rate)} kW`}
             </div>
           </div>
 
@@ -655,42 +630,21 @@ export default function Agendar({ go }: { go: (t: Tab) => void }) {
                   </select>
                 ) : (
                   `Seu carro · ${vehicle.model}`
-                )}{' '}
-                · {startingNow ? 'bateria e autonomia' : 'quanto de autonomia'}
+                )}
               </div>
-              <BatteryGauge vehicle={vehicle} soc={startingNow ? socNow : null} target={activeTargetLater} go={go} />
-              {startingNow && (
-                <div className="soc-now">
-                  <div className="soc-now-head">
-                    <span>Bateria agora</span>
-                    <b>{socLabel(vehicle, socNow)}</b>
-                  </div>
-                  <input
-                    className="cc-range"
-                    type="range"
-                    min={0}
-                    max={95}
-                    step={5}
-                    value={socNow}
-                    onChange={(e) => setSocNow(Number(e.target.value))}
-                    aria-label="Bateria agora"
-                  />
-                  <div className="hint-line">Vai começar agora: informa quanto o carro tem de bateria e a conta sai certa.</div>
-                  <div className="soc-now-meta">Quanto de autonomia você quer</div>
-                </div>
-              )}
-              {!startingNow && <div className="soc-now-meta">Quanto de autonomia você quer</div>}
+              <BatteryGauge vehicle={vehicle} soc={null} target={activeTargetLater} go={go} />
+              <div className="soc-now-meta">Quanto de autonomia você quer</div>
               <TargetChips
                 vehicle={vehicle}
                 active={activeTargetLater}
-                enabled={targetsLater}
+                enabled={TARGETS}
                 onPick={(t) => {
                   // mantém o horário do passo 1 (o passo 3 avisa se ele não couber com a nova meta)
                   setTarget(t)
                   setWizardStep(3)
                 }}
               />
-              {!place.own && !startingNow && (
+              {!place.own && (
                 <div className="hint-line">
                   no parceiro não tem telemetria: a conta supõe que o carro chega com {slotsData?.assumedStartSoc ?? 20}%.
                 </div>

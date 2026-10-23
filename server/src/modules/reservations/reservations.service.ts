@@ -228,13 +228,15 @@ export const reservationsService = {
     if (occupant && !occupant.isMe) {
       throw new AppError(`${occupant.name} está carregando agora — agende um horário`, 409, 'OCCUPIED_BY_OTHER')
     }
-    // Plugado mas sem SOC na telemetria (a série de potência acusou carga e o `detail` não): vale o que o morador informou.
+    // Plugado mas sem SOC na telemetria (a série de potência acusou carga e o `detail` não): a
+    // conta parte de ASSUMED_START_SOC e a reserva nasce provisória (`startSoc` nulo) — o
+    // `refineProvisional` ajusta o fim quando a bateria real aparecer.
     const startSoc = live.soc ?? req.startSoc ?? null
-    if (startSoc === null) throw new AppError('Informe a bateria atual do carro', 400, 'VALIDATION')
-    if (req.targetSoc <= startSoc) throw new AppError('A meta precisa ser maior que a bateria atual', 400, 'VALIDATION')
+    const fromSoc = startSoc ?? ASSUMED_START_SOC
+    if (req.targetSoc <= fromSoc) throw new AppError('A meta precisa ser maior que a bateria atual', 400, 'VALIDATION')
 
     const rateKw = rateOf(vehicle, charger)
-    const energyKwh = energyFor(vehicle, startSoc, req.targetSoc)
+    const energyKwh = energyFor(vehicle, fromSoc, req.targetSoc)
     const hoursSpan = Math.ceil(req.deadlineHours) + 1
     const [{ hours: curve }, busy] = await Promise.all([
       billingService.priceCurve(req.chargerId, now, hoursSpan),
