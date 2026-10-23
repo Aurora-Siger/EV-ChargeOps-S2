@@ -6,7 +6,15 @@ import { isOccupied, semsService } from '../sems/sems.service.js'
 import { stationsService } from '../stations/stations.service.js'
 import { workspacesRepository } from '../workspaces/workspaces.repository.js'
 import { fitsOpening, parseOpeningHours } from './domain/opening.js'
-import { cheapestWindow, startSlots, windowCostCents, type HourPrice } from './domain/scheduling.js'
+import {
+  cheapestWindow,
+  MAX_PLUGGED_WAIT_HOURS,
+  plugInOptions,
+  startSlots,
+  windowCostCents,
+  type HourPrice,
+  type Window,
+} from './domain/scheduling.js'
 import { reservationsRepository } from './reservations.repository.js'
 
 const HOUR_MS = 3_600_000
@@ -209,13 +217,13 @@ export const reservationsService = {
   },
 
   /**
-   * Fluxo "já plugado": zero pergunta de bateria — lê o SOC real da telemetria agora e o
-   * servidor mesmo escolhe a janela mais barata dentro do prazo. Exige o carregador
-   * fisicamente ocupado (carro plugado) neste instante.
+   * Base do "já plugado": exige o carro plugado agora (e não ser de outro morador), lê o SOC da
+   * telemetria e calcula energia e potência. Sem SOC na telemetria (a série de potência acusou
+   * carga e o `detail` não), a conta parte de ASSUMED_START_SOC e a reserva nasce provisória
+   * (`startSoc` nulo) — o `refineProvisional` ajusta o fim quando a bateria real aparecer.
    */
-  async scheduleNow(userId: string, req: { chargerId: string; vehicleId: string; targetSoc: number; deadlineHours: number; startSoc?: number }) {
+  async plugInContext(userId: string, req: { chargerId: string; vehicleId: string; targetSoc: number; startSoc?: number }) {
     const now = new Date()
-    const deadlineAt = new Date(now.getTime() + req.deadlineHours * HOUR_MS)
     const [vehicle, { charger }, live] = await Promise.all([
       residentsService.ownVehicle(userId, req.vehicleId),
       placeFor(userId, req.chargerId),
@@ -228,22 +236,60 @@ export const reservationsService = {
     if (occupant && !occupant.isMe) {
       throw new AppError(`${occupant.name} está carregando agora — agende um horário`, 409, 'OCCUPIED_BY_OTHER')
     }
-    // Plugado mas sem SOC na telemetria (a série de potência acusou carga e o `detail` não): a
-    // conta parte de ASSUMED_START_SOC e a reserva nasce provisória (`startSoc` nulo) — o
-    // `refineProvisional` ajusta o fim quando a bateria real aparecer.
     const startSoc = live.soc ?? req.startSoc ?? null
     const fromSoc = startSoc ?? ASSUMED_START_SOC
     if (req.targetSoc <= fromSoc) throw new AppError('A meta precisa ser maior que a bateria atual', 400, 'VALIDATION')
+    return { now, vehicle, charger, startSoc, fromSoc, rateKw: rateOf(vehicle, charger), energyKwh: energyFor(vehicle, fromSoc, req.targetSoc) }
+  },
 
-    const rateKw = rateOf(vehicle, charger)
-    const energyKwh = energyFor(vehicle, fromSoc, req.targetSoc)
-    const hoursSpan = Math.ceil(req.deadlineHours) + 1
+  /**
+   * As opções do "já plugado" pra uma meta: começar agora e, se compensar, esperar a hora
+   * barata (até MAX_PLUGGED_WAIT_HOURS). A tela mostra as duas com fim e custo, sem prazo
+   * pra ajustar — assim não dá pra pedir uma meta que não cabe no tempo.
+   */
+  async plugInOptions(userId: string, req: { chargerId: string; vehicleId: string; targetSoc: number }) {
+    const ctx = await reservationsService.plugInContext(userId, req)
+    const lastEnd = ctx.now.getTime() + (MAX_PLUGGED_WAIT_HOURS + ctx.energyKwh / ctx.rateKw) * HOUR_MS
     const [{ hours: curve }, busy] = await Promise.all([
-      billingService.priceCurve(req.chargerId, now, hoursSpan),
-      reservationsRepository.overlapping(req.chargerId, now, deadlineAt),
+      billingService.priceCurve(req.chargerId, ctx.now, Math.ceil((lastEnd - ctx.now.getTime()) / HOUR_MS) + 1),
+      reservationsRepository.overlapping(req.chargerId, ctx.now, new Date(lastEnd)),
     ])
-    const win = cheapestWindow({ curve, earliest: now, deadline: deadlineAt, energyKwh, rateKw, busy })
-    if (!win) throw new AppError(`Não dá pra chegar a ${req.targetSoc}% a tempo — tenta uma meta menor ou mais prazo`, 400, 'VALIDATION')
+    return {
+      soc: ctx.startSoc,
+      assumedStartSoc: ctx.fromSoc,
+      energyKwh: ctx.energyKwh,
+      ...plugInOptions({ curve, now: ctx.now, energyKwh: ctx.energyKwh, rateKw: ctx.rateKw, busy }),
+    }
+  },
+
+  /**
+   * Fluxo "já plugado": zero pergunta de bateria — lê o SOC real da telemetria agora. A tela
+   * manda `choice` (começar agora ou esperar a hora barata, ver `plugInOptions`); o Volt manda
+   * `deadlineHours` e o servidor escolhe a janela mais barata dentro do prazo.
+   */
+  async scheduleNow(
+    userId: string,
+    req: { chargerId: string; vehicleId: string; targetSoc: number; deadlineHours?: number; choice?: 'now' | 'cheaper'; startSoc?: number },
+  ) {
+    const { now, vehicle, startSoc, rateKw, energyKwh } = await reservationsService.plugInContext(userId, req)
+    let win: Window | null
+    let deadlineAt: Date
+    if (req.choice) {
+      const opts = await reservationsService.plugInOptions(userId, req)
+      win = req.choice === 'cheaper' ? opts.cheaper : opts.now
+      if (!win) throw new AppError('Essa opção não está mais disponível — atualiza a tela', 409, 'CONFLICT')
+      deadlineAt = win.end
+    } else {
+      const deadlineHours = req.deadlineHours ?? MAX_PLUGGED_WAIT_HOURS + energyKwh / rateKw
+      deadlineAt = new Date(now.getTime() + deadlineHours * HOUR_MS)
+      const hoursSpan = Math.ceil(deadlineHours) + 1
+      const [{ hours: curve }, busy] = await Promise.all([
+        billingService.priceCurve(req.chargerId, now, hoursSpan),
+        reservationsRepository.overlapping(req.chargerId, now, deadlineAt),
+      ])
+      win = cheapestWindow({ curve, earliest: now, deadline: deadlineAt, energyKwh, rateKw, busy })
+      if (!win) throw new AppError(`Não dá pra chegar a ${req.targetSoc}% a tempo — tenta uma meta menor ou mais prazo`, 400, 'VALIDATION')
+    }
 
     const created = await reservationsRepository.createIfFree({
       userId,

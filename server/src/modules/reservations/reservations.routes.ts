@@ -7,9 +7,17 @@ const nowBody = z.object({
   chargerId: z.string().min(1),
   vehicleId: z.string().min(1),
   targetSoc: z.number().int().min(1).max(100),
-  deadlineHours: z.number().min(0.5).max(24 * 7),
+  // a tela manda `choice` (opções de `/now-options`); `deadlineHours` fica pro prazo livre
+  deadlineHours: z.number().min(0.5).max(24 * 7).optional(),
+  choice: z.enum(['now', 'cheaper']).optional(),
   // Só vale quando a telemetria não traz a bateria (ver scheduleNow).
   startSoc: z.number().int().min(0).max(99).optional(),
+})
+
+const nowOptionsQuery = z.object({
+  chargerId: z.string().min(1),
+  vehicleId: z.string().min(1),
+  targetSoc: z.coerce.number().int().min(1).max(100),
 })
 
 const laterBody = z.object({
@@ -51,6 +59,11 @@ export const reservationsRoutes = new Hono<{ Variables: AuthVars }>()
   .post('/now', async (c) => {
     const body = nowBody.parse(await c.req.json())
     return c.json(await reservationsService.scheduleNow(c.get('user').id, body), 201)
+  })
+  // Opções do "já plugado" pra uma meta: começar agora ou esperar a hora barata (se compensar).
+  .get('/now-options', async (c) => {
+    const q = nowOptionsQuery.parse(c.req.query())
+    return c.json(await reservationsService.plugInOptions(c.get('user').id, q))
   })
   // "Agendar pra depois": só meta % + prazo — o horário é resolvido quando o carro pluga.
   .post('/later', async (c) => {

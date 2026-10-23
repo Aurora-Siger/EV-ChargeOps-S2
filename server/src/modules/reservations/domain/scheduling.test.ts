@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { fromLocal } from '../../../shared/time.js'
 import { parseOpeningHours } from './opening.js'
-import { cheapestWindow, recommendedForDeadline, startSlots, windowCostCents, type HourPrice } from './scheduling.js'
+import { cheapestWindow, plugInOptions, recommendedForDeadline, startSlots, windowCostCents, type HourPrice } from './scheduling.js'
 
 const at = (h: number, mi = 0) => fromLocal(2026, 7, 3, h, mi) // sexta
 
@@ -147,5 +147,25 @@ describe('recommendedForDeadline', () => {
     const slots = [slot(21, 5, 2200), slot(22, 4, 1700), slot(23, 4, null)]
     expect(recommendedForDeadline(slots, at(26))!.startsAt).toEqual(at(22))
     expect(recommendedForDeadline(slots, at(24))).toBeUndefined()
+  })
+})
+
+describe('plugInOptions', () => {
+  it('oferece esperar quando a hora barata está perto e economiza', () => {
+    // 23h30, 2h a 7kW: agora pega 23h30-1h30 (cara até 1h); esperar até 1h fica toda barata
+    const o = plugInOptions({ curve: curve24(), now: at(23, 30), energyKwh: 14, rateKw: 7, busy: [] })
+    expect(o.now!.start).toEqual(at(23, 30))
+    expect(o.cheaper!.start).toEqual(at(24 + 1))
+    expect(o.cheaper!.costCents).toBeLessThan(o.now!.costCents)
+  })
+  it('não oferece esperar quando a hora barata está longe demais', () => {
+    // 15h: a madrugada barata começa daqui a 10h (> 3h de espera)
+    const o = plugInOptions({ curve: curve24(), now: at(15), energyKwh: 14, rateKw: 7, busy: [] })
+    expect(o.now!.start).toEqual(at(15))
+    expect(o.cheaper).toBeNull()
+  })
+  it('não oferece esperar quando já está na hora barata', () => {
+    const o = plugInOptions({ curve: curve24(), now: at(2), energyKwh: 14, rateKw: 7, busy: [] })
+    expect(o.cheaper).toBeNull()
   })
 })

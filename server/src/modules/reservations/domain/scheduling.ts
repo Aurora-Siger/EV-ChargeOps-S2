@@ -138,3 +138,43 @@ export function recommendedForDeadline<T extends Pick<StartSlot, 'startsAt' | 'e
   const cheapest = Math.min(...pool.map((s) => s.costCents!))
   return pool.filter((s) => s.costCents! <= cheapest * NEAR_CHEAPEST).sort((x, y) => y.startsAt.getTime() - x.startsAt.getTime())[0]
 }
+
+/** "Já plugado": quanto o carro pode ficar parado na tomada esperando a hora barata. */
+export const MAX_PLUGGED_WAIT_HOURS = 3
+/** Só oferece esperar se economizar pelo menos isso (fração do custo de começar agora)… */
+const MIN_SAVING_PCT = 0.1
+/** …e pelo menos isso em centavos — esperar 2h pra economizar centavos não vale a vaga ocupada. */
+const MIN_SAVING_CENTS = 100
+
+/**
+ * As duas opções do "já plugado", sem prazo pra o morador ajustar: começar agora, e esperar a
+ * janela mais barata que começa em até `MAX_PLUGGED_WAIT_HOURS` — só quando a economia vale a
+ * espera (o carro fica parado ocupando o carregador compartilhado). `now` é null se a janela de
+ * agora bate com outra reserva; `cheaper` é null quando esperar não compensa.
+ */
+export function plugInOptions(args: {
+  curve: HourPrice[]
+  now: Date
+  energyKwh: number
+  rateKw: number
+  busy: Busy[]
+}): { now: Window | null; cheaper: Window | null } {
+  const { curve, now, energyKwh, rateKw, busy } = args
+  const hours = energyKwh / rateKw
+  if (hours <= 0 || rateKw <= 0) return { now: null, cheaper: null }
+  const span = hours * HOUR_MS
+  const asap = cheapestWindow({ curve, earliest: now, deadline: new Date(now.getTime() + span), energyKwh, rateKw, busy })
+  const best = cheapestWindow({
+    curve,
+    earliest: now,
+    deadline: new Date(now.getTime() + MAX_PLUGGED_WAIT_HOURS * HOUR_MS + span),
+    energyKwh,
+    rateKw,
+    busy,
+  })
+  const worth =
+    best !== null &&
+    best.start.getTime() > now.getTime() &&
+    (asap === null || (asap.costCents - best.costCents >= MIN_SAVING_CENTS && asap.costCents - best.costCents >= asap.costCents * MIN_SAVING_PCT))
+  return { now: asap, cheaper: worth ? best : null }
+}

@@ -3,7 +3,7 @@ import Volt from '../../components/Volt'
 import { TARGETS, TARGET_USE, availableTargets, chargeRateKw, energyNeeded, rangeAt } from '../../lib/energyPricing'
 import { fmtBRL, fmtDay, fmtHours, fmtKwh, fmtNum, fmtTime, fromLocal, LEVEL_LABEL, local, WEEKDAYS } from '../../lib/format'
 import { api } from '../../lib/http'
-import type { Reservation, StartSlot, StartSlots, Station, Vehicle } from '../../lib/types'
+import type { PlugInOptions, Reservation, StartSlot, StartSlots, Station, Vehicle } from '../../lib/types'
 import { useApi } from '../../lib/useApi'
 import { distanceKm, fmtDistance, placeholderGradient } from '../../lib/chargePoints'
 import { I } from './icons'
@@ -159,7 +159,8 @@ export default function Agendar({ go }: { go: (t: Tab) => void }) {
   const mode: Mode = pluggedIn ? modePick : 'later'
   const [placePick, setPlacePick] = useState<string | null>(null)
   const [target, setTarget] = useState(80)
-  const [hoursNow, setHoursNow] = useState(6)
+  // "já plugado": começar agora ou esperar a hora barata (sem prazo pra ajustar)
+  const [nowChoice, setNowChoice] = useState<'now' | 'cheaper'>('now')
   // null = ainda não escolheu: abre no primeiro dia com horário livre
   const [dayPick, setDayPick] = useState<number | null>(null)
   const [slotPick, setSlotPick] = useState<string | null>(null)
@@ -171,8 +172,6 @@ export default function Agendar({ go }: { go: (t: Tab) => void }) {
     setWizardStep(0)
   }
 
-  // "já plugado": prazo é daqui a N horas
-  const deadlineAtNow = new Date(nowMs + hoursNow * HOUR_MS)
 
   // A tela nunca pergunta a bateria atual (o morador nem sempre sabe): vale a da telemetria; sem
   // ela, o servidor estima e ajusta o fim da carga quando o carregador ler a bateria.
@@ -245,6 +244,14 @@ export default function Agendar({ go }: { go: (t: Tab) => void }) {
 
   const rate = vehicle && charger ? chargeRateKw(vehicle, charger.maxPowerKw) : 0
   const energyNow = vehicle && liveSoc !== null ? energyNeeded(vehicle, liveSoc, activeTargetNow) : null
+  const optionsPath =
+    mode === 'now' && pluggedIn && charger && vehicle && (liveSoc === null || liveSoc < 99)
+      ? `/api/reservations/now-options?${new URLSearchParams({ chargerId: charger.id, vehicleId: vehicle.id, targetSoc: String(activeTargetNow) })}`
+      : null
+  const nowOpts = useApi<PlugInOptions>(optionsPath, { pollMs: 60_000 })
+  const opts = nowOpts.loading ? null : nowOpts.data
+  // a escolha some se a opção deixou de existir (ex.: trocou a meta e esperar não compensa mais)
+  const activeChoice = nowChoice === 'cheaper' && opts?.cheaper ? 'cheaper' : opts?.now ? 'now' : opts?.cheaper ? 'cheaper' : null
 
   if (!charger) {
     return (
@@ -339,7 +346,7 @@ export default function Agendar({ go }: { go: (t: Tab) => void }) {
           chargerId: charger.id,
           vehicleId: vehicle.id,
           targetSoc: activeTargetNow,
-          deadlineHours: hoursNow,
+          choice: activeChoice,
         },
       })
       setDone({ ...r, ...placeOf(home) })
@@ -452,31 +459,54 @@ export default function Agendar({ go }: { go: (t: Tab) => void }) {
             )}
             <div className="soc-now-meta">Quanto de autonomia você quer</div>
             <TargetChips vehicle={vehicle} active={activeTargetNow} enabled={targetsNow} onPick={setTarget} />
-            <div className="hint-line">
-              {energyNow !== null
-                ? `faltam ${fmtKwh(energyNow)} · carrega a ${fmtNum(rate)} kW · ${rate > 0 ? fmtHours(energyNow / rate) : '—'} de carga`
-                : `carrega a ${fmtNum(rate)} kW`}
-            </div>
+            {energyNow !== null && (
+              <div className="hint-line">
+                faltam {fmtKwh(energyNow)} · carrega a {fmtNum(rate)} kW · {rate > 0 ? fmtHours(energyNow / rate) : '—'} de carga
+              </div>
+            )}
           </div>
 
           <div className="c">
-            <div className="c-label">
-              Pronto em até · {fmtDay(deadlineAtNow)} às {fmtTime(deadlineAtNow)}
-            </div>
-            <input
-              className="cc-range"
-              type="range"
-              min={1}
-              max={24}
-              step={1}
-              value={hoursNow}
-              onChange={(e) => setHoursNow(Number(e.target.value))}
-            />
-            <div className="hint-line">{hoursNow}h a partir de agora</div>
+            <div className="c-label">Quando carregar</div>
+            {!opts && !nowOpts.error && <div className="empty-slots">Calculando…</div>}
+            {nowOpts.error && <ErrorBox error={nowOpts.error} onRetry={nowOpts.reload} />}
+            {opts && !opts.now && !opts.cheaper && (
+              <div className="empty-slots">O carregador está reservado logo em seguida — escolhe uma meta menor.</div>
+            )}
+            {opts && (opts.now || opts.cheaper) && (
+              <div className="now-opts">
+                {opts.now && (
+                  <button className={`now-opt ${activeChoice === 'now' ? 'on' : ''}`} onClick={() => setNowChoice('now')}>
+                    <span className="t">Começar agora</span>
+                    <span className="s">
+                      pronto {fmtDay(opts.now.end).toLowerCase()} às {fmtTime(opts.now.end)} · <b>{fmtBRL(opts.now.costCents)}</b>
+                    </span>
+                  </button>
+                )}
+                {opts.cheaper && (
+                  <button className={`now-opt ${activeChoice === 'cheaper' ? 'on' : ''}`} onClick={() => setNowChoice('cheaper')}>
+                    <span className="t">
+                      Mais barato · começa às {fmtTime(opts.cheaper.start)}
+                      {opts.now && <em className="now-opt-save">−{fmtBRL(opts.now.costCents - opts.cheaper.costCents)}</em>}
+                    </span>
+                    <span className="s">
+                      pronto {fmtDay(opts.cheaper.end).toLowerCase()} às {fmtTime(opts.cheaper.end)} · <b>{fmtBRL(opts.cheaper.costCents)}</b>
+                    </span>
+                    <span className="s">
+                      o carro espera {fmtHours((new Date(opts.cheaper.start).getTime() - nowMs) / HOUR_MS)} plugado
+                    </span>
+                  </button>
+                )}
+              </div>
+            )}
+            {opts?.now && !opts.cheaper && <div className="hint-line">Começar agora já é o melhor preço das próximas horas.</div>}
+            {opts && opts.soc === null && (
+              <div className="hint-line">Fim estimado — ajusta sozinho quando o carregador ler a bateria.</div>
+            )}
           </div>
 
           {action.error && <div className="login-error">{action.error}</div>}
-          <button className="btn btn-primary" onClick={confirmNow} disabled={action.busy} style={{ width: '100%' }}>
+          <button className="btn btn-primary" onClick={confirmNow} disabled={action.busy || !activeChoice} style={{ width: '100%' }}>
             {action.busy ? 'Reservando…' : 'Confirmar reserva'}
           </button>
         </>
