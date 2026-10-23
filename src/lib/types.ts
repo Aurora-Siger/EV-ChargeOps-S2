@@ -63,6 +63,8 @@ export type WorkspaceSummary = {
   guests: number
   pendingRequests: number
   admins: { userId: string; name: string; email: string; title: AdminTitle | null }[]
+  /** pontos de recarga do condomínio */
+  stations: { id: string; name: string }[]
 }
 export type PriceLevel = 'cheap' | 'mid' | 'peak'
 

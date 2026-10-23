@@ -1,3 +1,4 @@
+import { and, asc, eq, isNull } from 'drizzle-orm'
 import { env } from './config/env.js'
 import { auth } from './infra/auth/auth.js'
 import { db } from './infra/db/client.js'
@@ -59,14 +60,14 @@ export async function seed() {
   const stationsToInsert = [
     { name: 'Edifício Aurora', address: 'Seu condomínio · vaga 12 da garagem', latitude: -23.5748, longitude: -46.6322, power: 7, kind: 'CONDOMINIO' as const, openingHours: '24h para moradores', publicPriceCentsKwh: null, imageUrl: '/stations/edificio-aurora.webp' },
     { name: 'FIAP Paulista', address: 'Av. Paulista, 1106', latitude: -23.5665, longitude: -46.6495, power: 22, kind: 'PARCEIRO' as const, openingHours: 'seg a sáb, 7h–23h', publicPriceCentsKwh: 74, imageUrl: '/stations/fiap-paulista.jpg' },
-    { name: 'FIAP Aclimação', address: 'Av. Lins de Vasconcelos, 1264', latitude: -23.5731, longitude: -46.6285, power: 22, kind: 'PARCEIRO' as const, openingHours: 'seg a sáb, 7h–23h', publicPriceCentsKwh: 74, imageUrl: '/stations/fiap-aclimacao.webp' },
+    { name: 'FIAP Aclimação', address: 'Av. Lins de Vasconcelos, 1264', latitude: -23.5731, longitude: -46.6285, power: 22, kind: 'CONDOMINIO' as const, openingHours: '24h para moradores', publicPriceCentsKwh: null, imageUrl: '/stations/fiap-aclimacao.webp' },
     { name: 'MASP', address: 'Av. Paulista, 1578 · estacionamento', latitude: -23.5614, longitude: -46.6558, power: 50, kind: 'PUBLICO' as const, openingHours: 'ter a dom, 10h–18h', publicPriceCentsKwh: 120, imageUrl: null },
   ]
 
   for (const s of stationsToInsert) {
     const [st] = await db.insert(station).values({
-      // só a estação do condomínio tem dono; parceiros e pontos públicos são da rede
-      workspaceId: s.kind === 'CONDOMINIO' ? aurora.id : null,
+      // parceiros e pontos públicos são da rede; os outros condomínios ganham workspace em seedCondoWorkspaces
+      workspaceId: s.name === 'Edifício Aurora' ? aurora.id : null,
       name: s.name,
       address: s.address,
       latitude: s.latitude,
@@ -87,4 +88,22 @@ export async function seed() {
   }
 
   console.log('Seed completo!')
+}
+
+/**
+ * Todo ponto de recarga de condomínio tem o seu condomínio: estação CONDOMINIO sem dono (da
+ * demo ou de um ponto da rede que virou condomínio) ganha um workspace com o nome e o endereço
+ * dela, com configurações e tarifa padrão. Sem isso o superadmin não tem como abrir o painel.
+ */
+export async function seedCondoWorkspaces() {
+  const orphans = await db
+    .select({ id: station.id, name: station.name, address: station.address })
+    .from(station)
+    .where(and(eq(station.kind, 'CONDOMINIO'), isNull(station.workspaceId)))
+    .orderBy(asc(station.createdAt))
+  for (const s of orphans) {
+    const ws = await workspacesService.create({ name: s.name, address: s.address })
+    await db.update(station).set({ workspaceId: ws.id }).where(eq(station.id, s.id))
+    console.log(`Condomínio criado para o ponto ${s.name}`)
+  }
 }

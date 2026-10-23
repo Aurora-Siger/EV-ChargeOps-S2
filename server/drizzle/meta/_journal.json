@@ -120,6 +120,13 @@
       "when": 1791946954208,
       "tag": "0016_lancamentos_ciclo",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1792774800000,
+      "tag": "0017_condominios_da_rede",
+      "breakpoints": true
     }
   ]
 }

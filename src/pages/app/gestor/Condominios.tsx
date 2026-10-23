@@ -126,6 +126,9 @@ export default function Condominios() {
                 {w.guests > 0 && ` · ${w.guests} ${w.guests === 1 ? 'convidado' : 'convidados'}`}
                 {w.pendingRequests > 0 && ` · ${w.pendingRequests} pedido(s) aguardando`}
               </div>
+              <div className="s">
+                {w.stations.length ? `Ponto de recarga: ${w.stations.map((s) => s.name).join(', ')}` : 'sem ponto de recarga'}
+              </div>
               <div className="s">{admins || 'sem síndico cadastrado'}</div>
             </div>
             {w.archivedAt && <span className="ptag dim">Arquivado</span>}

@@ -1,6 +1,6 @@
 import { and, asc, count, desc, eq, isNull, sql } from 'drizzle-orm'
 import { db } from '../../infra/db/client.js'
-import { unit, user, workspace, workspaceJoinRequest, workspaceMember } from '../../infra/db/schema.js'
+import { station, unit, user, workspace, workspaceJoinRequest, workspaceMember } from '../../infra/db/schema.js'
 
 export type WorkspaceRow = typeof workspace.$inferSelect
 export type JoinRequestRow = typeof workspaceJoinRequest.$inferSelect
@@ -15,9 +15,9 @@ export const workspacesRepository = {
   update: async (id: string, w: Partial<Pick<WorkspaceRow, 'name' | 'address' | 'archivedAt'>>) =>
     (await db.update(workspace).set(w).where(eq(workspace.id, id)).returning())[0],
 
-  /** Todos os condomínios com quantas pessoas e pedidos pendentes têm (tela do superadmin). */
+  /** Todos os condomínios com pontos de recarga, quantas pessoas e pedidos pendentes têm (tela do superadmin). */
   listWithCounts: async () => {
-    const [rows, members, pending] = await Promise.all([
+    const [rows, members, pending, stations] = await Promise.all([
       db.select().from(workspace).orderBy(asc(workspace.name)),
       db
         .select({ workspaceId: workspaceMember.workspaceId, kind: workspaceMember.kind, n: count() })
@@ -28,6 +28,11 @@ export const workspacesRepository = {
         .from(workspaceJoinRequest)
         .where(eq(workspaceJoinRequest.status, 'PENDING'))
         .groupBy(workspaceJoinRequest.workspaceId),
+      db
+        .select({ workspaceId: station.workspaceId, id: station.id, name: station.name })
+        .from(station)
+        .where(eq(station.kind, 'CONDOMINIO'))
+        .orderBy(asc(station.name)),
     ])
     const admins = await db
       .select({
@@ -46,6 +51,7 @@ export const workspacesRepository = {
       guests: members.find((m) => m.workspaceId === w.id && m.kind === 'CONVIDADO')?.n ?? 0,
       pendingRequests: pending.find((p) => p.workspaceId === w.id)?.n ?? 0,
       admins: admins.filter((a) => a.workspaceId === w.id),
+      stations: stations.filter((s) => s.workspaceId === w.id).map(({ id, name }) => ({ id, name })),
     }))
   },
 
