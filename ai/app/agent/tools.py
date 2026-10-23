@@ -47,8 +47,8 @@ def _user_id(config: RunnableConfig | None) -> str | None:
     return ((config or {}).get("configurable") or {}).get("user_id")
 
 
-# "até 100", "até 80%": meta de bateria, não horário.
-_META = re.compile(r"\bat[ée]\s+\d{2,3}\s*%?|\b\d{2,3}\s*%")
+# "até 100", "até 80%", "200 km": meta de bateria, não horário.
+_META = re.compile(r"\bat[ée]\s+\d{2,4}\s*(%|km)?|\b\d{2,4}\s*(%|km)")
 _HORA = re.compile(r"\b\d{1,2}\s*(h\b|:\d{2})|\bmeio[- ]dia\b|\bmeia[- ]noite\b|\bcedo\b")
 _PRAZO = re.compile(r"\b(at[ée]|pronto|pronta|antes)\b")
 _INICIO = re.compile(r"\b(a partir|depois|plug|come[cç])")
@@ -150,14 +150,22 @@ def search_knowledge(query: str) -> str:
 @tool
 def schedule_charge(
     config: RunnableConfig,
-    target_soc: int,
+    target_soc: int | None = None,
+    target_km: int | None = None,
     kind: Literal["prazo", "inicio"] = "inicio",
     horario: str | None = None,
     hours_from_now: float | None = None,
     confirmed: bool = False,
 ) -> str:
     """Agenda uma recarga de verdade pro carro do usuário logado (primeiro veículo e carregador
-    cadastrados), com meta de bateria target_soc (1-100).
+    cadastrados).
+
+    Meta, pelo que o usuário FALOU (passe só uma):
+    - target_km: autonomia em km que ele quer ter ("quero 200 km", "preciso de uns 150 km").
+      Pra um trajeto ("vou pra Campinas e volto"), estime você a distância total e some uma
+      folga de ~20%. O servidor converte pela autonomia do carro cadastrado.
+    - target_soc (1-100): só quando ele falar em % ("até 80%"); "cheio"/"carga completa" é 100.
+    - Nenhuma: não pergunte. Vai a meta do dia a dia (80%), e a proposta já diz quantos km dá.
 
     Quando: prefira `horario`, no horário de Brasília, "AAAA-MM-DD HH:MM" (ex.: "2026-10-14
     07:00"), ou "agora". `hours_from_now` (a partir de agora) só para pedidos relativos ("daqui a
@@ -183,8 +191,10 @@ def schedule_charge(
     uid = _user_id(config)
     if not uid:
         return NOT_LOGGED_IN
-    if not (1 <= target_soc <= 100):
+    if target_soc is not None and not (1 <= target_soc <= 100):
         return "Meta de bateria inválida: precisa ser entre 1 e 100%."
+    if target_km is not None and not (1 <= target_km <= 2000):
+        return "Meta de autonomia inválida: precisa ser entre 1 e 2000 km."
     kind = _kind_da_frase(((config or {}).get("configurable") or {}).get("user_message")) or kind
     if horario is None and hours_from_now is None:
         kind, horario = "inicio", "agora"  # sem horário: opções a partir de agora, sem perguntar
@@ -195,7 +205,12 @@ def schedule_charge(
         hours = max(0.0, hours)
     if not ((0.5 if kind == "prazo" else 0) <= hours <= 24 * 7):
         return "Horário inválido: o prazo precisa ser de 30 minutos a 7 dias a partir de agora."
-    body = {"targetSoc": target_soc, "hoursFromNow": round(hours, 4), "kind": "deadline" if kind == "prazo" else "start"}
+    body = {
+        **({"targetSoc": target_soc} if target_soc is not None else {}),
+        **({"targetKm": target_km} if target_km is not None and target_soc is None else {}),
+        "hoursFromNow": round(hours, 4),
+        "kind": "deadline" if kind == "prazo" else "start",
+    }
     if confirmed:
         return _backend_post(f"/internal/users/{uid}/schedule-charge", body)
     return _proposal(_backend_post(f"/internal/users/{uid}/schedule-charge/preview", body), target_soc)
@@ -222,7 +237,13 @@ def _reais(cents: int | None) -> str:
     return "sem estimativa" if cents is None else f"R$ {cents / 100:.2f}".replace(".", ",")
 
 
-def _proposal(raw: str, target_soc: int) -> str:
+def _meta(p: dict) -> str:
+    """A meta como o morador entende: km de autonomia do carro, com o % entre parênteses."""
+    soc = p.get("targetSoc")
+    return f"~{p['targetKm']} km de autonomia ({soc}%)" if p.get("targetKm") else f"{soc}%"
+
+
+def _proposal(raw: str, target_soc: int | None = None) -> str:
     """Texto da proposta a partir da prévia do backend (ou a mensagem de erro dele)."""
     try:
         p = json.loads(raw)
@@ -230,17 +251,26 @@ def _proposal(raw: str, target_soc: int) -> str:
         return raw
     if not isinstance(p, dict) or "pluggedIn" not in p:
         return raw
+    p.setdefault("targetSoc", target_soc)  # a prévia ecoa a meta resolvida (km → %)
+    meta = _meta(p)
+    padrao = (
+        f" Ele não disse quanto quer: é a meta do dia a dia; diga que, se precisar de mais, é só falar"
+        + (f" (carga completa dá ~{p['fullRangeKm']} km)." if p.get("fullRangeKm") else ".")
+        if p.get("defaultTarget")
+        else ""
+    )
+    confirma = f"target_soc={p.get('targetSoc')}"
     if p.get("kind") != "start" and p["pluggedIn"]:
         return (
             f"Proposta (ainda NÃO agendada): o carro está plugado com {p['currentSoc']}%; meta "
-            f"{target_soc}%, pronto até {p['deadlineLocal']} (horário de Brasília), no horário mais "
-            "barato dentro do prazo. Pergunte ao usuário se confirma antes de chamar esta "
-            "ferramenta de novo com confirmed=true."
+            f"{meta}, pronto até {p['deadlineLocal']} (horário de Brasília), no horário mais "
+            f"barato dentro do prazo.{padrao} Pergunte ao usuário se confirma antes de chamar esta "
+            f"ferramenta de novo com {confirma} e confirmed=true."
         )
     limit = f"a partir de {p['fromLocal']}" if p.get("kind") == "start" else f"até {p['deadlineLocal']}"
     options = p["options"]
     if not options:
-        return f"Nenhuma recarga {limit} chega a {target_soc}%. Sugira outro horário, uma meta menor ou mais prazo."
+        return f"Nenhuma recarga {limit} chega a {meta}. Sugira outro horário, uma meta menor ou mais prazo."
 
     def cost(o: dict) -> int:
         return o["estimatedCostCents"] or 0
@@ -267,11 +297,10 @@ def _proposal(raw: str, target_soc: int) -> str:
         "lida quando o carro for plugado. "
     )
     return (
-        f"Nada agendado ainda. Proposta para chegar a {target_soc}% {limit} (conta a partir de "
-        f"{p['assumedStartSoc']}%): {_line(best)}.{plug}{alt}\n"
-        "Responda numa frase só com a proposta e pergunte se confirma; não liste horários. "
-        f"{forecast}Com o "
-        'sim, chame com kind="inicio", o horario da opção e confirmed=true.'
+        f"Nada agendado ainda. Proposta para chegar a {meta} {limit}: {_line(best)}.{plug}{alt}{padrao}\n"
+        "Responda numa frase só com a proposta (a meta em km, se tiver) e pergunte se confirma; "
+        f"não liste horários. {forecast}Com o "
+        f'sim, chame com kind="inicio", o horario da opção, {confirma} e confirmed=true.'
     )
 
 

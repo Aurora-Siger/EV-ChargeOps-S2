@@ -325,3 +325,31 @@ def test_schedule_charge_horario_solto_e_inicio_mesmo_se_o_llm_mandar_prazo(monk
     tools.schedule_charge.invoke({"target_soc": 100, "kind": "prazo", "horario": "2026-10-14 07:00"}, config=config)
 
     assert calls[0][1]["kind"] == "start"
+
+
+def test_schedule_charge_meta_em_km_vai_pro_backend_converter(monkeypatch):
+    calls: list[tuple[str, dict]] = []
+    monkeypatch.setattr(tools.httpx, "post", _fake_post(calls, text='{"status":"ok"}'))
+
+    tools.schedule_charge.invoke({"target_km": 200}, config=LOGADO)
+
+    assert calls[0][1] == {"targetKm": 200, "hoursFromNow": 0.0, "kind": "start"}
+
+
+def test_schedule_charge_proposta_fala_em_km_e_sugere_mais_sem_meta(monkeypatch):
+    previa = (
+        '{"vehicleModel":"BYD Dolphin Mini","targetSoc":80,"targetKm":224,"fullRangeKm":280,"defaultTarget":true,'
+        '"pluggedIn":false,"kind":"start","fromLocal":"ter 13/10 22h","assumedStartSoc":20,"options":['
+        '{"horario":"2026-10-13 22:00","startsLocal":"ter 13/10 22h","endsLocal":"ter 13/10 23h30","level":"mid","estimatedCostCents":900}]}'
+    )
+    monkeypatch.setattr(tools.httpx, "post", _fake_post([], text=previa))
+
+    result = tools.schedule_charge.invoke({"horario": "agora"}, config=LOGADO)
+
+    assert "chegar a ~224 km de autonomia (80%)" in result
+    assert "meta do dia a dia" in result and "~280 km" in result
+    assert "target_soc=80" in result
+
+
+def test_km_na_frase_nao_vira_horario():
+    assert tools._kind_da_frase("preciso de uns 200 km") is None

@@ -50,7 +50,9 @@ const START_OPTIONS_HOURS = 4
 // Início pode ser agora (0); prazo precisa de pelo menos meia hora.
 const scheduleBody = z
   .object({
-    targetSoc: z.number().int().min(1).max(100),
+    // meta em % ou em km de autonomia do carro cadastrado; sem nenhuma, a do dia a dia
+    targetSoc: z.number().int().min(1).max(100).optional(),
+    targetKm: z.number().int().min(1).max(2000).optional(),
     hoursFromNow: z.number().min(0).max(24 * RESERVATION_HORIZON_DAYS),
     kind: z.enum(['deadline', 'start']).default('deadline'),
   })
@@ -79,8 +81,25 @@ function requestedAt(now: number, hoursFromNow: number): Date {
   return new Date(hoursFromNow > 0 ? Math.round(at / 60_000) * 60_000 : at)
 }
 
+/** Meta quando o morador não diz quanto quer: a recomendação dos fabricantes pro dia a dia. */
+const DAILY_TARGET_SOC = 80
+
+/**
+ * Meta em % a partir do que o morador pediu: % direto, ou km de autonomia convertidos pela
+ * autonomia de carga cheia do carro (arredonda pra cima, de 5 em 5, até 100%).
+ */
+function resolveTarget(body: { targetSoc?: number; targetKm?: number }, rangeKm: number | null) {
+  if (body.targetKm !== undefined) {
+    if (!rangeKm) {
+      throw new AppError('O carro não tem autonomia cadastrada (Perfil): use a meta em %, 80% é o dia a dia.', 400, 'NO_RANGE')
+    }
+    return Math.min(100, Math.ceil((body.targetKm / rangeKm) * 20) * 5)
+  }
+  return body.targetSoc ?? DAILY_TARGET_SOC
+}
+
 /** Carro e carregador do agendamento pelo Volt: o primeiro veículo e o carregador da unidade. */
-async function scheduleTarget(userId: string, targetSoc: number) {
+async function scheduleTarget(userId: string, body: { targetSoc?: number; targetKm?: number }) {
   const workspaceId = await workspaceOf(userId)
   const [chargerId, vehicles] = await Promise.all([
     residentsService.homeChargerId(userId, workspaceId),
@@ -89,7 +108,19 @@ async function scheduleTarget(userId: string, targetSoc: number) {
   const vehicle = vehicles[0]
   if (!vehicle) throw new AppError('Você ainda não tem um carro cadastrado no app — cadastra em Perfil antes de agendar.', 400, 'NO_VEHICLE')
   if (!chargerId) throw new AppError('Nenhum carregador vinculado à sua unidade — fala com o gestor do condomínio.', 400, 'NO_CHARGER')
-  return { chargerId, vehicleId: vehicle.id, targetSoc }
+  const targetSoc = resolveTarget(body, vehicle.rangeKm)
+  const km = (pct: number) => (vehicle.rangeKm ? Math.round((vehicle.rangeKm * pct) / 100) : null)
+  return {
+    req: { chargerId, vehicleId: vehicle.id, targetSoc },
+    // o Volt fala da meta em km do carro (como a tela), com o % entre parênteses
+    goal: {
+      vehicleModel: vehicle.model,
+      targetSoc,
+      targetKm: km(targetSoc),
+      fullRangeKm: km(100),
+      defaultTarget: body.targetSoc === undefined && body.targetKm === undefined,
+    },
+  }
 }
 
 /**
@@ -159,11 +190,12 @@ export const meInternalRoutes = new Hono()
   .post('/users/:id/schedule-charge/preview', async (c) => {
     const userId = c.req.param('id')
     const body = scheduleBody.parse(await c.req.json())
-    const req = await scheduleTarget(userId, body.targetSoc)
+    const { req, goal } = await scheduleTarget(userId, body)
     const now = Date.now()
     if (await startsNowPlugged(userId, body)) {
       const p = await reservationsService.plugInPreview(userId, req)
       return c.json({
+        ...goal,
         pluggedIn: true,
         kind: 'start',
         fromLocal: localHourLabel(new Date(now)),
@@ -186,7 +218,7 @@ export const meInternalRoutes = new Hono()
     const live = await semsService.live()
     const pluggedIn = !!live && isOccupied(live) && live.soc !== null
     if (body.kind === 'deadline' && pluggedIn) {
-      return c.json({ pluggedIn, currentSoc: live!.soc, deadlineLocal: localHourLabel(at) })
+      return c.json({ ...goal, pluggedIn, currentSoc: live!.soc, deadlineLocal: localHourLabel(at) })
     }
 
     const window =
@@ -204,6 +236,7 @@ export const meInternalRoutes = new Hono()
             .filter((s) => s !== undefined)
             .sort((x, y) => x.startsAt.getTime() - y.startsAt.getTime())
     return c.json({
+      ...goal,
       pluggedIn,
       kind: body.kind,
       ...(body.kind === 'deadline' ? { deadlineLocal: localHourLabel(at) } : { fromLocal: localHourLabel(at) }),
@@ -234,7 +267,7 @@ export const meInternalRoutes = new Hono()
   .post('/users/:id/schedule-charge', async (c) => {
     const userId = c.req.param('id')
     const body = scheduleBody.parse(await c.req.json())
-    const req = await scheduleTarget(userId, body.targetSoc)
+    const { req, goal } = await scheduleTarget(userId, body)
     const at = requestedAt(Date.now(), body.hoursFromNow)
     const r = (await startsNowPlugged(userId, body))
       ? await reservationsService.scheduleNow(userId, req)
@@ -248,6 +281,7 @@ export const meInternalRoutes = new Hono()
       // sem carro plugado a duração parte da bateria assumida; o fim muda quando ele plugar
       ...(r.startSoc === null && { assumedStartSoc: ASSUMED_START_SOC }),
       targetSoc: r.targetSoc,
+      targetKm: goal.targetKm,
       estimatedCostCents: r.estimatedCostCents,
     })
   })

@@ -169,6 +169,16 @@ def test_ate_as_x_e_prazo():
     assert all(c.get("horario", "").endswith("12:00") for c in calls), calls
 
 
+def test_meta_em_km_vai_em_target_km():
+    calls = _schedule_calls("Quero uns 200 km de autonomia amanhã às 7h")
+    assert calls and all(c.get("target_km") == 200 and c.get("target_soc") is None for c in calls), calls
+
+
+def test_sem_meta_nao_pergunta_e_agenda_com_a_do_dia_a_dia():
+    calls = _schedule_calls("Agenda uma recarga pra amanhã às 22h")
+    assert calls and all(c.get("target_soc") is None and c.get("target_km") is None for c in calls), calls
+
+
 # Setembro real da Ana (mês aberto, abaixo de agosto), como o /internal/users/:id/invoice devolve.
 # Antes do campo `comparison` o modelo inventava "subiu R$ 7,50" com esses mesmos números.
 SETEMBRO_DA_ANA = {
