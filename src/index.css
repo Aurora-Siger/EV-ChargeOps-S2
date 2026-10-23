@@ -5987,13 +5987,91 @@ img {
 
 .ask-target {
   flex: 1;
-  padding: 8px 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 8px 4px;
   border-radius: 10px;
   border: 1px solid var(--bd);
   background: var(--bg3);
   font-size: 13px;
   font-weight: 600;
   color: var(--text2);
+}
+
+.ask-target b {
+  font-size: 14px;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+.ask-target span {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text3);
+}
+
+.ask-target.on b,
+.ask-target.on span {
+  color: var(--pink-soft);
+}
+
+/* bateria do carro cadastrado: capacidade real + barra com a carga atual e a meta */
+.batt {
+  margin-bottom: 14px;
+}
+
+.batt-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+  font-size: 13px;
+  color: var(--text2);
+}
+
+.batt-head b {
+  font-size: 13px;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.batt-bar {
+  position: relative;
+  height: 14px;
+  border-radius: 7px;
+  border: 1px solid var(--bd);
+  background: var(--bg3);
+  overflow: hidden;
+}
+
+.batt-target,
+.batt-now {
+  position: absolute;
+  inset: 0 auto 0 0;
+  transition: width 0.2s ease;
+}
+
+.batt-target {
+  background: var(--pink-l);
+  border-right: 2px solid var(--pink-b);
+}
+
+.batt-now {
+  background: var(--green);
+}
+
+.batt-link {
+  display: block;
+  background: none;
+  border: 0;
+  padding: 0;
+  text-align: left;
+  text-decoration: underline;
+  cursor: pointer;
 }
 
 .ask-target.on {

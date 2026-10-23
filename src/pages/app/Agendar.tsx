@@ -1,9 +1,9 @@
 import { useMemo, useState } from 'react'
 import Volt from '../../components/Volt'
-import { TARGETS, availableTargets, chargeRateKw, energyNeeded } from '../../lib/energyPricing'
+import { TARGETS, TARGET_USE, availableTargets, chargeRateKw, energyNeeded, rangeAt } from '../../lib/energyPricing'
 import { fmtBRL, fmtDay, fmtHours, fmtKwh, fmtNum, fmtTime, fromLocal, LEVEL_LABEL, local, WEEKDAYS } from '../../lib/format'
 import { api } from '../../lib/http'
-import type { Reservation, StartSlot, StartSlots, Station } from '../../lib/types'
+import type { Reservation, StartSlot, StartSlots, Station, Vehicle } from '../../lib/types'
 import { useApi } from '../../lib/useApi'
 import { distanceKm, fmtDistance, placeholderGradient } from '../../lib/chargePoints'
 import { I } from './icons'
@@ -67,6 +67,69 @@ function sliderGradient(slots: StartSlot[]) {
   const n = slots.length
   const stops = slots.map((s, i) => `${LEVEL_COLOR[s.level]} ${(i / n) * 100}%, ${LEVEL_COLOR[s.level]} ${((i + 1) / n) * 100}%`)
   return `linear-gradient(90deg, ${stops.join(', ')})`
+}
+
+/**
+ * A bateria do carro cadastrado como referência: capacidade real (kWh), autonomia de carga cheia
+ * e uma barra com a carga atual (quando conhecida) e até onde a meta leva.
+ */
+function BatteryGauge({ vehicle, soc, target, go }: { vehicle: Vehicle; soc: number | null; target: number; go: (t: Tab) => void }) {
+  const km = rangeAt(vehicle, 100)
+  return (
+    <div className="batt">
+      <div className="batt-head">
+        <span>Capacidade da bateria</span>
+        <b>
+          {fmtKwh(vehicle.capacityKwh)}
+          {km !== null ? ` · ~${km} km cheio` : ''}
+        </b>
+      </div>
+      <div className="batt-bar" role="img" aria-label={`${soc !== null ? `agora ${soc}%, ` : ''}meta ${target}%`}>
+        <div className="batt-target" style={{ width: `${target}%` }} />
+        {soc !== null && <div className="batt-now" style={{ width: `${soc}%` }} />}
+      </div>
+      {km === null && (
+        <button className="hint-line batt-link" onClick={() => go('perfil')}>
+          Cadastra a autonomia do carro no Perfil pra ver a meta em km.
+        </button>
+      )}
+    </div>
+  )
+}
+
+/** Metas em autonomia do carro cadastrado (km, ou kWh sem autonomia cadastrada), com % e o uso de cada uma como apoio. */
+function TargetChips({
+  vehicle,
+  active,
+  enabled,
+  onPick,
+}: {
+  vehicle: Vehicle
+  active: number
+  enabled: number[]
+  onPick: (t: number) => void
+}) {
+  return (
+    <div className="ask-targets" style={{ marginTop: 12, marginBottom: 0 }}>
+      {TARGETS.map((t) => {
+        const km = rangeAt(vehicle, t)
+        return (
+          <button key={t} className={`ask-target ${t === active ? 'on' : ''}`} disabled={!enabled.includes(t)} onClick={() => onPick(t)}>
+            <b>{km !== null ? `~${km} km` : fmtKwh((t / 100) * vehicle.capacityKwh)}</b>
+            <span>
+              {t}% · {TARGET_USE[t]}
+            </span>
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
+/** "20% · ~56 km" — a bateria informada já traduzida em autonomia. */
+function socLabel(vehicle: Vehicle, soc: number) {
+  const km = rangeAt(vehicle, soc)
+  return km !== null ? `${soc}% · ~${km} km` : `${soc}%`
 }
 
 export default function Agendar({ go }: { go: (t: Tab) => void }) {
@@ -390,11 +453,12 @@ export default function Agendar({ go }: { go: (t: Tab) => void }) {
                 `Seu carro · ${vehicle.model}`
               )}
             </div>
+            <BatteryGauge vehicle={vehicle} soc={liveSoc} target={activeTargetNow} go={go} />
             {socAsked ? (
               <div className="soc-now">
                 <div className="soc-now-head">
                   <span>Bateria agora</span>
-                  <b>{socNow}%</b>
+                  <b>{socLabel(vehicle, socNow)}</b>
                 </div>
                 <input
                   className="cc-range"
@@ -410,21 +474,11 @@ export default function Agendar({ go }: { go: (t: Tab) => void }) {
               </div>
             ) : (
               <div className="live-soc">
-                <span className="dot" /> bateria agora <b>{liveSoc}%</b>
+                <span className="dot" /> bateria agora <b>{socLabel(vehicle, liveSoc)}</b>
               </div>
             )}
-            <div className="ask-targets" style={{ marginTop: 12, marginBottom: 0 }}>
-              {TARGETS.map((t) => (
-                <button
-                  key={t}
-                  className={`ask-target ${t === activeTargetNow ? 'on' : ''}`}
-                  disabled={!targetsNow.includes(t)}
-                  onClick={() => setTarget(t)}
-                >
-                  {t}%
-                </button>
-              ))}
-            </div>
+            <div className="soc-now-meta">Quanto de autonomia você quer</div>
+            <TargetChips vehicle={vehicle} active={activeTargetNow} enabled={targetsNow} onPick={setTarget} />
             <div className="hint-line">
               faltam {fmtKwh(energyNow)} · carrega a {fmtNum(rate)} kW · {rate > 0 ? fmtHours(energyNow / rate) : '—'} de carga
             </div>
@@ -602,13 +656,14 @@ export default function Agendar({ go }: { go: (t: Tab) => void }) {
                 ) : (
                   `Seu carro · ${vehicle.model}`
                 )}{' '}
-                · {startingNow ? 'bateria e meta' : 'meta de bateria'}
+                · {startingNow ? 'bateria e autonomia' : 'quanto de autonomia'}
               </div>
+              <BatteryGauge vehicle={vehicle} soc={startingNow ? socNow : null} target={activeTargetLater} go={go} />
               {startingNow && (
                 <div className="soc-now">
                   <div className="soc-now-head">
                     <span>Bateria agora</span>
-                    <b>{socNow}%</b>
+                    <b>{socLabel(vehicle, socNow)}</b>
                   </div>
                   <input
                     className="cc-range"
@@ -621,25 +676,20 @@ export default function Agendar({ go }: { go: (t: Tab) => void }) {
                     aria-label="Bateria agora"
                   />
                   <div className="hint-line">Vai começar agora: informa quanto o carro tem de bateria e a conta sai certa.</div>
-                  <div className="soc-now-meta">Meta</div>
+                  <div className="soc-now-meta">Quanto de autonomia você quer</div>
                 </div>
               )}
-              <div className="ask-targets" style={{ marginTop: 0, marginBottom: 0 }}>
-                {TARGETS.map((t) => (
-                  <button
-                    key={t}
-                    className={`ask-target ${t === activeTargetLater ? 'on' : ''}`}
-                    disabled={!targetsLater.includes(t)}
-                    onClick={() => {
-                      // mantém o horário do passo 1 (o passo 3 avisa se ele não couber com a nova meta)
-                      setTarget(t)
-                      setWizardStep(3)
-                    }}
-                  >
-                    {t}%
-                  </button>
-                ))}
-              </div>
+              {!startingNow && <div className="soc-now-meta">Quanto de autonomia você quer</div>}
+              <TargetChips
+                vehicle={vehicle}
+                active={activeTargetLater}
+                enabled={targetsLater}
+                onPick={(t) => {
+                  // mantém o horário do passo 1 (o passo 3 avisa se ele não couber com a nova meta)
+                  setTarget(t)
+                  setWizardStep(3)
+                }}
+              />
               {!place.own && !startingNow && (
                 <div className="hint-line">
                   no parceiro não tem telemetria: a conta supõe que o carro chega com {slotsData?.assumedStartSoc ?? 20}%.
@@ -681,7 +731,11 @@ export default function Agendar({ go }: { go: (t: Tab) => void }) {
                     </div>
                     <div className="row">
                       <span>Bateria</span>
-                      <b>{slotsData.socDeclared ? `${slotsData.assumedStartSoc}% → ${activeTargetLater}%` : `meta ${activeTargetLater}%`}</b>
+                      <b>
+                        {slotsData.socDeclared
+                          ? `${slotsData.assumedStartSoc}% → ${socLabel(vehicle, activeTargetLater)}`
+                          : `meta ${socLabel(vehicle, activeTargetLater)}`}
+                      </b>
                     </div>
                     {activeSlot.costCents !== null && (
                       <div className="row">

@@ -21,3 +21,14 @@ export function chargeRateKw(vehicle: Vehicle, chargerMaxKw: number) {
 export function energyNeeded(vehicle: Vehicle, battery: number, target: number) {
   return Math.max(0, ((target - battery) / 100) * vehicle.capacityKwh)
 }
+
+/** Pra que serve cada meta — 80% é a recomendação dos fabricantes pro dia a dia (preserva a bateria). */
+export const TARGET_USE: Record<number, string> = { 60: 'curto', 80: 'dia a dia', 100: 'viagem' }
+
+/**
+ * Autonomia (km) com a bateria em `pct`%, proporcional à autonomia de carga cheia do cadastro.
+ * null quando o carro não tem autonomia cadastrada — aí a tela mostra kWh em vez de inventar km.
+ */
+export function rangeAt(vehicle: Vehicle, pct: number) {
+  return vehicle.rangeKm ? Math.round((vehicle.rangeKm * pct) / 100) : null
+}
