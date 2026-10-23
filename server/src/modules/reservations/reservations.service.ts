@@ -6,15 +6,7 @@ import { isOccupied, semsService } from '../sems/sems.service.js'
 import { stationsService } from '../stations/stations.service.js'
 import { workspacesRepository } from '../workspaces/workspaces.repository.js'
 import { fitsOpening, parseOpeningHours } from './domain/opening.js'
-import {
-  cheapestWindow,
-  MAX_PLUGGED_WAIT_HOURS,
-  plugInOptions,
-  startSlots,
-  windowCostCents,
-  type HourPrice,
-  type Window,
-} from './domain/scheduling.js'
+import { cheapestWindow, startSlots, windowCostCents, type HourPrice } from './domain/scheduling.js'
 import { reservationsRepository } from './reservations.repository.js'
 
 const HOUR_MS = 3_600_000
@@ -93,6 +85,16 @@ const checkDeadline = (deadlineAt: Date, now: Date) => {
   if (deadlineAt.getTime() > now.getTime() + RESERVATION_HORIZON_DAYS * 24 * HOUR_MS) {
     throw new AppError(`Só dá pra pedir "pronto até" dentro de ${RESERVATION_HORIZON_DAYS} dias`, 400, 'VALIDATION')
   }
+}
+
+/** Carga começando agora (carro já plugado): a janela que termina assim que a energia entra. */
+async function asapWindow(chargerId: string, ctx: { now: Date; energyKwh: number; rateKw: number }) {
+  const end = new Date(ctx.now.getTime() + (ctx.energyKwh / ctx.rateKw) * HOUR_MS)
+  const [{ hours: curve }, busy] = await Promise.all([
+    billingService.priceCurve(chargerId, ctx.now, Math.ceil((end.getTime() - ctx.now.getTime()) / HOUR_MS) + 1),
+    reservationsRepository.overlapping(chargerId, ctx.now, end),
+  ])
+  return cheapestWindow({ curve, earliest: ctx.now, deadline: end, energyKwh: ctx.energyKwh, rateKw: ctx.rateKw, busy })
 }
 
 export const reservationsService = {
@@ -243,53 +245,40 @@ export const reservationsService = {
   },
 
   /**
-   * As opções do "já plugado" pra uma meta: começar agora e, se compensar, esperar a hora
-   * barata (até MAX_PLUGGED_WAIT_HOURS). A tela mostra as duas com fim e custo, sem prazo
-   * pra ajustar — assim não dá pra pedir uma meta que não cabe no tempo.
+   * Prévia do "já plugado" pra uma meta: o carro já está na tomada, então começa agora — a tela
+   * mostra quando fica pronto e quanto custa, sem prazo pra ajustar. `window` é null se a carga
+   * bate com a reserva seguinte de outro morador.
    */
-  async plugInOptions(userId: string, req: { chargerId: string; vehicleId: string; targetSoc: number }) {
+  async plugInPreview(userId: string, req: { chargerId: string; vehicleId: string; targetSoc: number }) {
     const ctx = await reservationsService.plugInContext(userId, req)
-    const lastEnd = ctx.now.getTime() + (MAX_PLUGGED_WAIT_HOURS + ctx.energyKwh / ctx.rateKw) * HOUR_MS
-    const [{ hours: curve }, busy] = await Promise.all([
-      billingService.priceCurve(req.chargerId, ctx.now, Math.ceil((lastEnd - ctx.now.getTime()) / HOUR_MS) + 1),
-      reservationsRepository.overlapping(req.chargerId, ctx.now, new Date(lastEnd)),
-    ])
-    return {
-      soc: ctx.startSoc,
-      assumedStartSoc: ctx.fromSoc,
-      energyKwh: ctx.energyKwh,
-      ...plugInOptions({ curve, now: ctx.now, energyKwh: ctx.energyKwh, rateKw: ctx.rateKw, busy }),
-    }
+    return { soc: ctx.startSoc, assumedStartSoc: ctx.fromSoc, energyKwh: ctx.energyKwh, window: await asapWindow(req.chargerId, ctx) }
   },
 
   /**
-   * Fluxo "já plugado": zero pergunta de bateria — lê o SOC real da telemetria agora. A tela
-   * manda `choice` (começar agora ou esperar a hora barata, ver `plugInOptions`); o Volt manda
-   * `deadlineHours` e o servidor escolhe a janela mais barata dentro do prazo.
+   * Fluxo "já plugado": zero pergunta de bateria — lê o SOC real da telemetria agora. Sem
+   * `deadlineHours` (a tela) começa na hora; com ele (o Volt, "pronto até"), o servidor escolhe
+   * a janela mais barata dentro do prazo.
    */
   async scheduleNow(
     userId: string,
-    req: { chargerId: string; vehicleId: string; targetSoc: number; deadlineHours?: number; choice?: 'now' | 'cheaper'; startSoc?: number },
+    req: { chargerId: string; vehicleId: string; targetSoc: number; deadlineHours?: number; startSoc?: number },
   ) {
-    const { now, vehicle, startSoc, rateKw, energyKwh } = await reservationsService.plugInContext(userId, req)
-    let win: Window | null
-    let deadlineAt: Date
-    if (req.choice) {
-      const opts = await reservationsService.plugInOptions(userId, req)
-      win = req.choice === 'cheaper' ? opts.cheaper : opts.now
-      if (!win) throw new AppError('Essa opção não está mais disponível — atualiza a tela', 409, 'CONFLICT')
-      deadlineAt = win.end
+    const ctx = await reservationsService.plugInContext(userId, req)
+    const { now, vehicle, startSoc, rateKw, energyKwh } = ctx
+    let win
+    if (req.deadlineHours === undefined) {
+      win = await asapWindow(req.chargerId, ctx)
+      if (!win) throw new AppError('O carregador está reservado logo em seguida — tenta uma meta menor', 409, 'CONFLICT')
     } else {
-      const deadlineHours = req.deadlineHours ?? MAX_PLUGGED_WAIT_HOURS + energyKwh / rateKw
-      deadlineAt = new Date(now.getTime() + deadlineHours * HOUR_MS)
-      const hoursSpan = Math.ceil(deadlineHours) + 1
+      const deadline = new Date(now.getTime() + req.deadlineHours * HOUR_MS)
       const [{ hours: curve }, busy] = await Promise.all([
-        billingService.priceCurve(req.chargerId, now, hoursSpan),
-        reservationsRepository.overlapping(req.chargerId, now, deadlineAt),
+        billingService.priceCurve(req.chargerId, now, Math.ceil(req.deadlineHours) + 1),
+        reservationsRepository.overlapping(req.chargerId, now, deadline),
       ])
-      win = cheapestWindow({ curve, earliest: now, deadline: deadlineAt, energyKwh, rateKw, busy })
+      win = cheapestWindow({ curve, earliest: now, deadline, energyKwh, rateKw, busy })
       if (!win) throw new AppError(`Não dá pra chegar a ${req.targetSoc}% a tempo — tenta uma meta menor ou mais prazo`, 400, 'VALIDATION')
     }
+    const deadlineAt = req.deadlineHours === undefined ? win.end : new Date(now.getTime() + req.deadlineHours * HOUR_MS)
 
     const created = await reservationsRepository.createIfFree({
       userId,

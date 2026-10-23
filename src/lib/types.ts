@@ -276,14 +276,14 @@ export type StartSlots = {
 
 /** Janela de carga calculada pelo servidor ("já plugado"). */
 export type ChargeWindow = { start: string; end: string; hours: number; costCents: number; level: PriceLevel }
-/** Opções do "já plugado" pra uma meta: começar agora e, se compensar, esperar a hora barata.
- * `soc`: bateria lida na telemetria (null: a conta parte de `assumedStartSoc`). */
-export type PlugInOptions = {
+/** Prévia do "já plugado" pra uma meta: começa agora; `window` é quando fica pronto e o custo
+ * (null se bate com a reserva seguinte). `soc`: bateria lida na telemetria (null: a conta parte
+ * de `assumedStartSoc`). */
+export type PlugInPreview = {
   soc: number | null
   assumedStartSoc: number
   energyKwh: number
-  now: ChargeWindow | null
-  cheaper: ChargeWindow | null
+  window: ChargeWindow | null
 }
 
 export type StationKind = 'CONDOMINIO' | 'PARCEIRO' | 'PUBLICO'

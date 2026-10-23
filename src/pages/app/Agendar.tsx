@@ -3,7 +3,7 @@ import Volt from '../../components/Volt'
 import { TARGETS, TARGET_USE, availableTargets, chargeRateKw, energyNeeded, rangeAt } from '../../lib/energyPricing'
 import { fmtBRL, fmtDay, fmtHours, fmtKwh, fmtNum, fmtTime, fromLocal, LEVEL_LABEL, local, WEEKDAYS } from '../../lib/format'
 import { api } from '../../lib/http'
-import type { PlugInOptions, Reservation, StartSlot, StartSlots, Station, Vehicle } from '../../lib/types'
+import type { PlugInPreview, Reservation, StartSlot, StartSlots, Station, Vehicle } from '../../lib/types'
 import { useApi } from '../../lib/useApi'
 import { distanceKm, fmtDistance, placeholderGradient } from '../../lib/chargePoints'
 import { I } from './icons'
@@ -14,7 +14,6 @@ import { useAction } from '../../lib/useAction'
 import type { Tab } from './App'
 
 const DAYS_AHEAD = 7
-const HOUR_MS = 3_600_000
 
 /** Hoje + 6 dias, no horário do condomínio. */
 function nextDays() {
@@ -159,8 +158,6 @@ export default function Agendar({ go }: { go: (t: Tab) => void }) {
   const mode: Mode = pluggedIn ? modePick : 'later'
   const [placePick, setPlacePick] = useState<string | null>(null)
   const [target, setTarget] = useState(80)
-  // "já plugado": começar agora ou esperar a hora barata (sem prazo pra ajustar)
-  const [nowChoice, setNowChoice] = useState<'now' | 'cheaper'>('now')
   // null = ainda não escolheu: abre no primeiro dia com horário livre
   const [dayPick, setDayPick] = useState<number | null>(null)
   const [slotPick, setSlotPick] = useState<string | null>(null)
@@ -246,12 +243,11 @@ export default function Agendar({ go }: { go: (t: Tab) => void }) {
   const energyNow = vehicle && liveSoc !== null ? energyNeeded(vehicle, liveSoc, activeTargetNow) : null
   const optionsPath =
     mode === 'now' && pluggedIn && charger && vehicle && (liveSoc === null || liveSoc < 99)
-      ? `/api/reservations/now-options?${new URLSearchParams({ chargerId: charger.id, vehicleId: vehicle.id, targetSoc: String(activeTargetNow) })}`
+      ? `/api/reservations/now-preview?${new URLSearchParams({ chargerId: charger.id, vehicleId: vehicle.id, targetSoc: String(activeTargetNow) })}`
       : null
-  const nowOpts = useApi<PlugInOptions>(optionsPath, { pollMs: 60_000 })
-  const opts = nowOpts.loading ? null : nowOpts.data
-  // a escolha some se a opção deixou de existir (ex.: trocou a meta e esperar não compensa mais)
-  const activeChoice = nowChoice === 'cheaper' && opts?.cheaper ? 'cheaper' : opts?.now ? 'now' : opts?.cheaper ? 'cheaper' : null
+  // já plugado não espera hora barata: começa agora, a prévia só mostra quando fica pronto e o custo
+  const nowPreview = useApi<PlugInPreview>(optionsPath, { pollMs: 60_000 })
+  const preview = nowPreview.loading ? null : nowPreview.data
 
   if (!charger) {
     return (
@@ -346,7 +342,6 @@ export default function Agendar({ go }: { go: (t: Tab) => void }) {
           chargerId: charger.id,
           vehicleId: vehicle.id,
           targetSoc: activeTargetNow,
-          choice: activeChoice,
         },
       })
       setDone({ ...r, ...placeOf(home) })
@@ -467,47 +462,35 @@ export default function Agendar({ go }: { go: (t: Tab) => void }) {
           </div>
 
           <div className="c">
-            <div className="c-label">Quando carregar</div>
-            {!opts && !nowOpts.error && <div className="empty-slots">Calculando…</div>}
-            {nowOpts.error && <ErrorBox error={nowOpts.error} onRetry={nowOpts.reload} />}
-            {opts && !opts.now && !opts.cheaper && (
+            <div className="c-label">Começa agora</div>
+            {!preview && !nowPreview.error && <div className="empty-slots">Calculando…</div>}
+            {nowPreview.error && <ErrorBox error={nowPreview.error} onRetry={nowPreview.reload} />}
+            {preview && !preview.window && (
               <div className="empty-slots">O carregador está reservado logo em seguida — escolhe uma meta menor.</div>
             )}
-            {opts && (opts.now || opts.cheaper) && (
-              <div className="now-opts">
-                {opts.now && (
-                  <button className={`now-opt ${activeChoice === 'now' ? 'on' : ''}`} onClick={() => setNowChoice('now')}>
-                    <span className="t">Começar agora</span>
-                    <span className="s">
-                      pronto {fmtDay(opts.now.end).toLowerCase()} às {fmtTime(opts.now.end)} · <b>{fmtBRL(opts.now.costCents)}</b>
-                    </span>
-                  </button>
-                )}
-                {opts.cheaper && (
-                  <button className={`now-opt ${activeChoice === 'cheaper' ? 'on' : ''}`} onClick={() => setNowChoice('cheaper')}>
-                    <span className="t">
-                      Mais barato · começa às {fmtTime(opts.cheaper.start)}
-                      {opts.now && <em className="now-opt-save">−{fmtBRL(opts.now.costCents - opts.cheaper.costCents)}</em>}
-                    </span>
-                    <span className="s">
-                      pronto {fmtDay(opts.cheaper.end).toLowerCase()} às {fmtTime(opts.cheaper.end)} · <b>{fmtBRL(opts.cheaper.costCents)}</b>
-                    </span>
-                    <span className="s">
-                      o carro espera {fmtHours((new Date(opts.cheaper.start).getTime() - nowMs) / HOUR_MS)} plugado
-                    </span>
-                  </button>
-                )}
+            {preview?.window && (
+              <div className="confirm-summary">
+                <div className="row">
+                  <span>Pronto</span>
+                  <b>
+                    {fmtDay(preview.window.end)} às {preview.soc === null ? '~' : ''}
+                    {fmtTime(preview.window.end)}
+                  </b>
+                </div>
+                <div className="row">
+                  <span>Estimado</span>
+                  <b className={`est ${preview.window.level}`}>{fmtBRL(preview.window.costCents)}</b>
+                </div>
               </div>
             )}
-            {opts?.now && !opts.cheaper && <div className="hint-line">Começar agora já é o melhor preço das próximas horas.</div>}
-            {opts && opts.soc === null && (
+            {preview?.window && preview.soc === null && (
               <div className="hint-line">Fim estimado — ajusta sozinho quando o carregador ler a bateria.</div>
             )}
           </div>
 
           {action.error && <div className="login-error">{action.error}</div>}
-          <button className="btn btn-primary" onClick={confirmNow} disabled={action.busy || !activeChoice} style={{ width: '100%' }}>
-            {action.busy ? 'Reservando…' : 'Confirmar reserva'}
+          <button className="btn btn-primary" onClick={confirmNow} disabled={action.busy || !preview?.window} style={{ width: '100%' }}>
+            {action.busy ? 'Iniciando…' : 'Começar recarga'}
           </button>
         </>
       )}
