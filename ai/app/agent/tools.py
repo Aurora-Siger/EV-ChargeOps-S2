@@ -259,12 +259,18 @@ def _proposal(raw: str, target_soc: int) -> str:
 
     plug = "" if p["pluggedIn"] or best["horario"] == "agora" else f" O carro só precisa estar plugado até {best['startsLocal']}."
     alt = f"\nAlternativa, só se ele não quiser essa: {_line(other)}." if other else ""
+    # carro já plugado: começa na hora, sem a ressalva de "a bateria só é lida ao plugar"
+    forecast = (
+        ""
+        if p["pluggedIn"]
+        else "Diga que o fim é uma previsão e pode se estender um pouco, porque a bateria real só é "
+        "lida quando o carro for plugado. "
+    )
     return (
         f"Nada agendado ainda. Proposta para chegar a {target_soc}% {limit} (conta a partir de "
         f"{p['assumedStartSoc']}%): {_line(best)}.{plug}{alt}\n"
-        "Responda numa frase só com a proposta e pergunte se confirma; não liste horários. Diga "
-        "que o fim é uma previsão e pode se estender um pouco, porque a bateria real só é lida "
-        "quando o carro for plugado. Com o "
+        "Responda numa frase só com a proposta e pergunte se confirma; não liste horários. "
+        f"{forecast}Com o "
         'sim, chame com kind="inicio", o horario da opção e confirmed=true.'
     )
 

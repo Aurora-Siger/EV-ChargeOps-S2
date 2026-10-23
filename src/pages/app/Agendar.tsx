@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import Volt from '../../components/Volt'
-import { TARGETS, TARGET_USE, availableTargets, chargeRateKw, energyNeeded, rangeAt } from '../../lib/energyPricing'
-import { fmtBRL, fmtDay, fmtHours, fmtKwh, fmtNum, fmtTime, fromLocal, LEVEL_LABEL, local, WEEKDAYS } from '../../lib/format'
+import { TARGETS, TARGET_USE, availableTargets, rangeAt } from '../../lib/energyPricing'
+import { fmtBRL, fmtDay, fmtKwh, fmtNum, fmtTime, fromLocal, LEVEL_LABEL, local, WEEKDAYS } from '../../lib/format'
 import { api } from '../../lib/http'
 import type { PlugInPreview, Reservation, StartSlot, StartSlots, Station, Vehicle } from '../../lib/types'
 import { useApi } from '../../lib/useApi'
@@ -239,8 +239,6 @@ export default function Agendar({ go }: { go: (t: Tab) => void }) {
         .slice(0, 3)
     : []
 
-  const rate = vehicle && charger ? chargeRateKw(vehicle, charger.maxPowerKw) : 0
-  const energyNow = vehicle && liveSoc !== null ? energyNeeded(vehicle, liveSoc, activeTargetNow) : null
   const optionsPath =
     mode === 'now' && pluggedIn && charger && vehicle && (liveSoc === null || liveSoc < 99)
       ? `/api/reservations/now-preview?${new URLSearchParams({ chargerId: charger.id, vehicleId: vehicle.id, targetSoc: String(activeTargetNow) })}`
@@ -391,7 +389,6 @@ export default function Agendar({ go }: { go: (t: Tab) => void }) {
           <div className="live-soc" style={{ marginTop: 0 }}>
             <span className="dot" /> <b>{occupant.data!.name}</b> está carregando agora
           </div>
-          <div className="hint-line">Dá pra agendar um horário a seguir; carregar agora só quando ele sair.</div>
         </div>
       )}
 
@@ -454,11 +451,6 @@ export default function Agendar({ go }: { go: (t: Tab) => void }) {
             )}
             <div className="soc-now-meta">Quanto de autonomia você quer</div>
             <TargetChips vehicle={vehicle} active={activeTargetNow} enabled={targetsNow} onPick={setTarget} />
-            {energyNow !== null && (
-              <div className="hint-line">
-                faltam {fmtKwh(energyNow)} · carrega a {fmtNum(rate)} kW · {rate > 0 ? fmtHours(energyNow / rate) : '—'} de carga
-              </div>
-            )}
           </div>
 
           <div className="c">
@@ -482,9 +474,6 @@ export default function Agendar({ go }: { go: (t: Tab) => void }) {
                   <b className={`est ${preview.window.level}`}>{fmtBRL(preview.window.costCents)}</b>
                 </div>
               </div>
-            )}
-            {preview?.window && preview.soc === null && (
-              <div className="hint-line">Fim estimado — ajusta sozinho quando o carregador ler a bateria.</div>
             )}
           </div>
 
@@ -605,10 +594,6 @@ export default function Agendar({ go }: { go: (t: Tab) => void }) {
                     style={{ background: sliderGradient(freeDaySlots) }}
                     onChange={(e) => setSlotPick(slotKey(freeDaySlots[Number(e.target.value)]))}
                   />
-                  <div className="hint-line">
-                    Arrasta pra escolher o horário — a cor mostra o preço (verde barato, vermelho pico). Segura o carregador por ~
-                    {fmtHours(slotsData.hours)}.
-                  </div>
                 </div>
               )}
 
@@ -657,11 +642,6 @@ export default function Agendar({ go }: { go: (t: Tab) => void }) {
                   setWizardStep(3)
                 }}
               />
-              {!place.own && (
-                <div className="hint-line">
-                  no parceiro não tem telemetria: a conta supõe que o carro chega com {slotsData?.assumedStartSoc ?? 20}%.
-                </div>
-              )}
               <div className="wiz-nav">
                 <button className="btn btn-ghost" onClick={() => setWizardStep(1)}>
                   Voltar
@@ -713,19 +693,6 @@ export default function Agendar({ go }: { go: (t: Tab) => void }) {
                       </div>
                     )}
                   </div>
-                  <div className="hint-line hint-line-sub">
-                    {slotsData.socDeclared
-                      ? `Conta feita com a bateria de ${slotsData.assumedStartSoc}% que você informou.`
-                      : slotsData.telemetry
-                        ? `A conta supõe que o carro chega com ${slotsData.assumedStartSoc}% — quando plugar, a gente lê a bateria e ajusta o fim.`
-                        : `A conta supõe que o carro chega com ${slotsData.assumedStartSoc}%.`}
-                  </div>
-                  {pluggedIn && place.own && !activeSlot.now && (
-                    <div className="hint-line hint-line-sub">
-                      Seu carro já tá plugado — o carregador fica reservado pra você desde agora até{' '}
-                      {fmtTime(activeSlot.endsAt)}, mesmo antes da carga começar.
-                    </div>
-                  )}
 
                   {cheaperAlternatives.length > 0 && (
                     <>

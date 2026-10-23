@@ -13,15 +13,6 @@ export function availableTargets(battery: number) {
   return TARGETS.filter((t) => t > battery + 1)
 }
 
-/** kW efetivos: o menor entre o carregador embarcado do carro e o carregador da vaga. */
-export function chargeRateKw(vehicle: Vehicle, chargerMaxKw: number) {
-  return Math.min(vehicle.maxChargeKw, chargerMaxKw)
-}
-
-export function energyNeeded(vehicle: Vehicle, battery: number, target: number) {
-  return Math.max(0, ((target - battery) / 100) * vehicle.capacityKwh)
-}
-
 /** Pra que serve cada meta — 80% é a recomendação dos fabricantes pro dia a dia (preserva a bateria). */
 export const TARGET_USE: Record<number, string> = { 60: 'curto', 80: 'dia a dia', 100: 'viagem' }
 

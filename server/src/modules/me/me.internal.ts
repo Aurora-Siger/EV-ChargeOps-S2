@@ -11,6 +11,7 @@ import { isOccupied, semsService } from '../sems/sems.service.js'
 import { ASSUMED_START_SOC, RESERVATION_HORIZON_DAYS, reservationsService } from '../reservations/reservations.service.js'
 import { recommendedForDeadline } from '../reservations/domain/scheduling.js'
 import { sessionsService } from '../sessions/sessions.service.js'
+import { stationsService } from '../stations/stations.service.js'
 import { workspacesService } from '../workspaces/workspaces.service.js'
 
 const internalOnly = createMiddleware(async (c, next) => {
@@ -61,6 +62,18 @@ const scheduleBody = z
  * caía na tarifa das 21h. O agente sempre fala em minuto cheio: arredonda pra ele ("agora" fica
  * exato).
  */
+/**
+ * "Começar agora" com o carro do próprio morador já na tomada: vai pelo "já plugado" da tela
+ * (começa na hora), não pela reserva por horário — que veria o carregador ocupado pelo carro dele.
+ */
+async function startsNowPlugged(userId: string, body: { kind: 'deadline' | 'start'; hoursFromNow: number }) {
+  if (body.kind !== 'start' || body.hoursFromNow > 0) return false
+  const live = await semsService.live()
+  if (!live || !isOccupied(live)) return false
+  const occupant = await stationsService.occupant(userId)
+  return !occupant || occupant.isMe
+}
+
 function requestedAt(now: number, hoursFromNow: number): Date {
   const at = now + hoursFromNow * HOUR_MS
   return new Date(hoursFromNow > 0 ? Math.round(at / 60_000) * 60_000 : at)
@@ -148,6 +161,27 @@ export const meInternalRoutes = new Hono()
     const body = scheduleBody.parse(await c.req.json())
     const req = await scheduleTarget(userId, body.targetSoc)
     const now = Date.now()
+    if (await startsNowPlugged(userId, body)) {
+      const p = await reservationsService.plugInPreview(userId, req)
+      return c.json({
+        pluggedIn: true,
+        kind: 'start',
+        fromLocal: localHourLabel(new Date(now)),
+        assumedStartSoc: p.assumedStartSoc,
+        options: p.window
+          ? [
+              {
+                horario: 'agora',
+                startsLocal: 'agora',
+                endsLocal: localHourLabel(p.window.end),
+                level: p.window.level,
+                estimatedCostCents: p.window.costCents,
+                recommended: true,
+              },
+            ]
+          : [],
+      })
+    }
     const at = requestedAt(now, body.hoursFromNow)
     const live = await semsService.live()
     const pluggedIn = !!live && isOccupied(live) && live.soc !== null
@@ -202,8 +236,9 @@ export const meInternalRoutes = new Hono()
     const body = scheduleBody.parse(await c.req.json())
     const req = await scheduleTarget(userId, body.targetSoc)
     const at = requestedAt(Date.now(), body.hoursFromNow)
-    const r =
-      body.kind === 'start'
+    const r = (await startsNowPlugged(userId, body))
+      ? await reservationsService.scheduleNow(userId, req)
+      : body.kind === 'start'
         ? await reservationsService.scheduleAt(userId, { ...req, startsAt: at })
         : await reservationsService.scheduleNow(userId, { ...req, deadlineHours: body.hoursFromNow })
     return c.json({
