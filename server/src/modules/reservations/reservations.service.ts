@@ -2,6 +2,7 @@ import { AppError, ForbiddenError, NotFoundError } from '../../shared/errors.js'
 import { startOfLocalHour } from '../../shared/time.js'
 import { billingService } from '../billing/billing.service.js'
 import { residentsService } from '../residents/residents.service.js'
+import { sessionsRepository } from '../sessions/sessions.repository.js'
 import { isOccupied, semsService } from '../sems/sems.service.js'
 import { stationsService } from '../stations/stations.service.js'
 import { workspacesRepository } from '../workspaces/workspaces.repository.js'
@@ -395,6 +396,34 @@ export const reservationsService = {
   expireOverdue: (now = new Date()) => reservationsRepository.expireOverdue(now),
 
   /** Dono da reserva, superadmin ou admin do condomínio do carregador. */
+  /**
+   * Grade de agendamentos do condomínio (painel do gestor): os carregadores dele, as reservas
+   * no intervalo e as sessões reais de recarga no mesmo intervalo, pra comparar agendado × feito.
+   */
+  async agenda(workspaceId: string, from: Date, to: Date, withCancelled = false) {
+    const [chargers, reservations, sessions] = await Promise.all([
+      reservationsRepository.chargersOfWorkspace(workspaceId),
+      reservationsRepository.ofWorkspace(workspaceId, from, to, withCancelled),
+      // sessão que começou na véspera ainda pode estar no ar no começo do intervalo
+      sessionsRepository.list({ workspaceId, start: new Date(from.getTime() - 24 * HOUR_MS), end: to }),
+    ])
+    return {
+      chargers,
+      reservations,
+      sessions: sessions
+        .filter((s) => (s.endedAt ?? new Date()) > from)
+        .map((s) => ({
+          id: s.id,
+          chargerId: s.chargerId,
+          startedAt: s.startedAt,
+          endedAt: s.endedAt,
+          energyKwh: s.energyKwh,
+          userName: s.userName,
+          unitLabel: s.unitLabel,
+        })),
+    }
+  },
+
   async cancel(user: { id: string; role: 'SUPER_ADMIN' | 'USER' }, id: string) {
     const r = await reservationsRepository.findById(id)
     if (!r) throw new NotFoundError('Reserva')

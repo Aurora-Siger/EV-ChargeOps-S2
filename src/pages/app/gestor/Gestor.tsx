@@ -3,6 +3,7 @@ import { currentPeriod } from '../../../lib/format'
 import { I } from '../icons'
 import { PeriodPicker } from '../ui'
 import { isSuperAdmin, myRoleLabel, useMe } from '../me'
+import Agenda from './Agenda'
 import Cadastros from './Cadastros'
 import Cobrancas from './Cobrancas'
 import Condominios from './Condominios'
@@ -69,6 +70,7 @@ export default function Gestor({ section: requested, onSection, back }: { sectio
 
       {section === 'geral' && <Geral period={period} />}
       {section === 'operacao' && <Operacao period={period} />}
+      {section === 'agenda' && <Agenda />}
       {section === 'rateio' && <Rateio period={period} canWrite goCobrancas={() => onSection('cobrancas')} />}
       {section === 'cobrancas' && <Cobrancas period={period} canWrite goRateio={() => onSection('rateio')} />}
       {section === 'cadastros' && <Cadastros />}

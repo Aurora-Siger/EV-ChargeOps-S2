@@ -1,6 +1,6 @@
-import { and, asc, desc, eq, gt, isNull, lt, ne, sql } from 'drizzle-orm'
+import { and, asc, desc, eq, gt, inArray, isNull, lt, ne, sql } from 'drizzle-orm'
 import { db } from '../../infra/db/client.js'
-import { charger, reservation, station, vehicle } from '../../infra/db/schema.js'
+import { charger, reservation, station, unit, user, vehicle, workspaceMember } from '../../infra/db/schema.js'
 
 /**
  * Início efetivo pra checar conflito: se o carro já estava plugado antes do horário escolhido
@@ -66,6 +66,51 @@ export const reservationsRepository = {
         .where(eq(reservation.userId, userId))
         .orderBy(desc(reservation.createdAt))
         .limit(limit)
+    ).map(({ r, ...rest }) => ({ ...toDto(r), ...rest })),
+
+  /** Carregadores do condomínio com o nome da estação (colunas/legenda da agenda do gestor). */
+  chargersOfWorkspace: (workspaceId: string) =>
+    db
+      .select({ id: charger.id, stationName: station.name, maxPowerKw: charger.maxPowerKw, connector: charger.connector })
+      .from(charger)
+      .innerJoin(station, eq(station.id, charger.stationId))
+      .where(eq(station.workspaceId, workspaceId))
+      .orderBy(sql`${charger.externalId} IS NULL`, asc(station.createdAt), asc(charger.id)),
+
+  /**
+   * Agenda do gestor: reservas com horário nos carregadores do condomínio que tocam [from, to),
+   * com quem reservou (unidade e placa) e o carregador. Canceladas/expiradas só se pedidas.
+   */
+  ofWorkspace: async (workspaceId: string, from: Date, to: Date, withCancelled = false) =>
+    (
+      await db
+        .select({
+          r: reservation,
+          userName: user.name,
+          unitLabel: unit.label,
+          memberKind: workspaceMember.kind,
+          vehicleModel: vehicle.model,
+          vehiclePlate: vehicle.plate,
+        })
+        .from(reservation)
+        .innerJoin(charger, eq(charger.id, reservation.chargerId))
+        .innerJoin(station, eq(station.id, charger.stationId))
+        .innerJoin(user, eq(user.id, reservation.userId))
+        .leftJoin(
+          workspaceMember,
+          and(eq(workspaceMember.userId, reservation.userId), eq(workspaceMember.workspaceId, station.workspaceId)),
+        )
+        .leftJoin(unit, eq(unit.id, workspaceMember.unitId))
+        .leftJoin(vehicle, eq(vehicle.id, reservation.vehicleId))
+        .where(
+          and(
+            eq(station.workspaceId, workspaceId),
+            inArray(reservation.status, withCancelled ? ['SCHEDULED', 'CANCELLED', 'EXPIRED'] : ['SCHEDULED']),
+            lt(effectiveStart, to),
+            gt(reservation.endsAt, from),
+          ),
+        )
+        .orderBy(asc(reservation.startsAt))
     ).map(({ r, ...rest }) => ({ ...toDto(r), ...rest })),
 
   /** Cria com horário (fluxo "já plugado" ou reserva por horário de início) só se continuar livre. */

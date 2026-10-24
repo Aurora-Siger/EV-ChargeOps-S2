@@ -1,6 +1,7 @@
 export type GestorSection =
   | 'geral'
   | 'operacao'
+  | 'agenda'
   | 'rateio'
   | 'cobrancas'
   | 'cadastros'
@@ -12,6 +13,7 @@ export type GestorSection =
 export const GESTOR_SECTIONS: { id: GestorSection; label: string; superOnly?: boolean }[] = [
   { id: 'geral', label: 'Visão geral' },
   { id: 'operacao', label: 'Operação' },
+  { id: 'agenda', label: 'Agenda' },
   { id: 'rateio', label: 'Custos & rateio' },
   { id: 'cobrancas', label: 'Cobranças' },
   { id: 'cadastros', label: 'Cadastros' },

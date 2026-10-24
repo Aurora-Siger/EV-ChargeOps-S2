@@ -386,3 +386,28 @@ export type Settings = {
   dueDay: number
   basePriceCentsKwh: number | null
 }
+
+/** Agenda do gestor (`/api/admin/reservations`): reservas e sessões reais num intervalo. */
+export type AgendaReservation = Reservation & {
+  userId: string
+  occupiedFromAt: string | null
+  createdAt: string
+  userName: string
+  unitLabel: string | null
+  memberKind: 'MORADOR' | 'CONVIDADO' | null
+  vehiclePlate: string | null
+}
+export type AgendaSession = {
+  id: string
+  chargerId: string
+  startedAt: string
+  endedAt: string | null
+  energyKwh: number
+  userName: string | null
+  unitLabel: string | null
+}
+export type Agenda = {
+  chargers: { id: string; stationName: string; maxPowerKw: string; connector: string | null }[]
+  reservations: AgendaReservation[]
+  sessions: AgendaSession[]
+}

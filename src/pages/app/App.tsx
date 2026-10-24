@@ -28,13 +28,13 @@ const TABS: Tab[] = ['home', 'agendar', 'mapa', 'fatura', 'perfil']
 /** URL de cada seção do gestor (a de "geral" é a raiz `/app/gestor`, pra não quebrar links já
  * salvos) ↔ seção. Cada uma vira um item próprio na sidebar, igual ao menu do morador. */
 const GESTOR_URL: Record<GestorSection, string> = {
-  geral: 'gestor', operacao: 'gestor-operacao', rateio: 'gestor-rateio', cobrancas: 'gestor-cobrancas', cadastros: 'gestor-cadastros',
+  geral: 'gestor', operacao: 'gestor-operacao', agenda: 'gestor-agenda', rateio: 'gestor-rateio', cobrancas: 'gestor-cobrancas', cadastros: 'gestor-cadastros',
   pedidos: 'gestor-pedidos', config: 'gestor-config', condominios: 'gestor-condominios',
 }
 const SECTION_BY_URL = new Map(Object.entries(GESTOR_URL).map(([section, url]) => [url, section as GestorSection]))
 
 const GESTOR_ICON: Record<GestorSection, React.ReactNode> = {
-  geral: I.chart, operacao: I.bolt, rateio: I.bill, cobrancas: I.wallet, cadastros: I.card, pedidos: I.user, config: I.gear,
+  geral: I.chart, operacao: I.bolt, agenda: I.cal, rateio: I.bill, cobrancas: I.wallet, cadastros: I.card, pedidos: I.user, config: I.gear,
   condominios: I.home2,
 }
 

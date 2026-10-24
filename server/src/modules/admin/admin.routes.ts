@@ -5,6 +5,7 @@ import { isPeriod, periodOf, periodRange } from '../../shared/time.js'
 import { billingService } from '../billing/billing.service.js'
 import { chargesService } from '../charges/charges.service.js'
 import { pricingQueries } from '../pricing/pricing.service.js'
+import { reservationsService } from '../reservations/reservations.service.js'
 import { residentsService } from '../residents/residents.service.js'
 import { sessionsService } from '../sessions/sessions.service.js'
 import { settingsService } from '../settings/settings.service.js'
@@ -93,6 +94,14 @@ export const adminRoutes = new Hono<{ Variables: WorkspaceVars }>()
     const body = z.object({ userId: nullableId }).parse(await c.req.json())
     await sessionsService.assign(wsOf(c).id, c.req.param('id'), body.userId)
     return c.body(null, 204)
+  })
+  // agenda (grade estilo calendário): reservas + sessões reais num intervalo de até 6 semanas
+  .get('/reservations', async (c) => {
+    const q = z
+      .object({ from: z.coerce.date(), to: z.coerce.date(), cancelled: z.enum(['0', '1']).optional() })
+      .refine((q) => q.to > q.from && q.to.getTime() - q.from.getTime() <= 42 * 86_400_000, 'Intervalo inválido (até 6 semanas)')
+      .parse(c.req.query())
+    return c.json(await reservationsService.agenda(wsOf(c).id, q.from, q.to, q.cancelled === '1'))
   })
   .post('/sessions/sync', async (c) => c.json(await sessionsService.syncFromSems()))
 
