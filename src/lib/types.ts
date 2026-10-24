@@ -403,6 +403,9 @@ export type AgendaSession = {
   startedAt: string
   endedAt: string | null
   energyKwh: number
+  durationMin: number | null
+  idleMin: number
+  chargedCents: number | null
   userId: string | null
   userName: string | null
   unitLabel: string | null

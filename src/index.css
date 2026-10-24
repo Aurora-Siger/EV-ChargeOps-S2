@@ -7005,6 +7005,7 @@ img {
 
 .ag-nav {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 8px;
   min-width: 0;
@@ -7184,18 +7185,6 @@ img {
   background: rgba(232, 24, 90, 0.03);
 }
 
-.ag-ses {
-  position: absolute;
-  left: 2px;
-  width: 4px;
-  border-radius: 2px;
-  background: var(--green);
-  opacity: 0.85;
-}
-
-.ag-ses.live {
-  box-shadow: 0 0 0 2px var(--green-b);
-}
 
 .ag-ev {
   --ev: var(--pink);
@@ -7229,6 +7218,25 @@ img {
 .ag-ev.cont-end {
   border-bottom-left-radius: 0;
   border-bottom-right-radius: 0;
+}
+
+.ag-ev.ses {
+  border-left-color: var(--green);
+  background: color-mix(in srgb, var(--green) 20%, var(--bg2));
+}
+
+.ag-ev.ses .ag-ok {
+  background: transparent;
+  color: var(--green);
+}
+
+.ag-ev.ses .ag-ok svg {
+  width: 11px;
+  height: 11px;
+}
+
+.ag-ev.ses.live {
+  box-shadow: 0 0 0 1px var(--green);
 }
 
 .ag-ev.done {
@@ -7344,6 +7352,9 @@ img {
 }
 
 .ag-ev-body .p {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
   font-family: var(--mono);
   font-size: 10px;
   color: var(--text2);

@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import { fmtBRL, fmtDateTime, fmtDay, fmtKwh, fmtTime, fromLocal, local, WEEKDAYS } from '../../../lib/format'
+import { fmtBRL, fmtDateTime, fmtDay, fmtKwh, fmtMinutes, fmtTime, fromLocal, local, WEEKDAYS } from '../../../lib/format'
 import { api } from '../../../lib/http'
 import type { Agenda as AgendaData, AgendaReservation, AgendaSession } from '../../../lib/types'
 import { useAction } from '../../../lib/useAction'
@@ -10,8 +10,9 @@ import { ErrorBox, Loading, Modal, PlateChip } from '../ui'
 /**
  * Agenda do condomínio em grade, no jeito do Google Calendar: colunas = dias, linhas = horas.
  * Cada reserva vira um bloco na janela de carga; o trecho em que o carro já ocupa o carregador
- * antes da carga começar (`occupiedFromAt`) aparece hachurado. As sessões reais da SEMS correm
- * numa faixa fina à esquerda de cada dia — dá pra bater o agendado com o que aconteceu.
+ * antes da carga começar (`occupiedFromAt`) aparece hachurado. As sessões reais da SEMS entram
+ * como blocos verdes próprios, ao lado do agendamento que atenderam — dá pra bater o agendado
+ * com o que aconteceu, ou ver só um dos dois.
  */
 
 const HOUR_PX = 44
@@ -21,6 +22,8 @@ const MONTHS_SHORT = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 's
 const CHARGER_COLORS = ['#e8185a', '#34d399', '#60a5fa', '#fbbf24', '#a78bfa', '#f472b6']
 
 type View = 'week' | 'day'
+/** O que a grade mostra: agendamentos, sessões realizadas (SEMS) ou os dois. */
+type Show = 'all' | 'res' | 'ses'
 type Ymd = { year: number; month: number; day: number }
 
 const ymdOf = (d: Date): Ymd => {
@@ -57,8 +60,8 @@ function layout<T extends { top: number; bottom: number }>(items: T[]): Placed<T
   return out
 }
 
-type ResBlock = { r: AgendaReservation; top: number; bottom: number; leadPx: number; contStart: boolean; contEnd: boolean }
-type SesBlock = { s: AgendaSession; top: number; bottom: number }
+type Span = { top: number; bottom: number; contStart: boolean; contEnd: boolean }
+type Item = ({ kind: 'res'; r: AgendaReservation; leadPx: number } | { kind: 'ses'; s: AgendaSession }) & Span
 
 /** Folga pra casar reserva com sessão: o morador pluga um pouco antes ou depois do combinado. */
 const MATCH_SLACK_MS = 60 * 60_000
@@ -218,12 +221,72 @@ function Detail({
   )
 }
 
+function SessionDetail({
+  s,
+  booked,
+  chargerName,
+  onClose,
+  onOpenReservation,
+}: {
+  s: AgendaSession
+  booked?: AgendaReservation
+  chargerName: string
+  onClose: () => void
+  onOpenReservation: () => void
+}) {
+  const end = s.endedAt ? new Date(s.endedAt) : null
+  const minutes = s.durationMin ?? Math.round(((end ?? new Date()).getTime() - new Date(s.startedAt).getTime()) / 60_000)
+  return (
+    <Modal title="Sessão realizada" onClose={onClose}>
+      <div className="ag-detail-head">
+        <span className="ag-dot" style={{ background: 'var(--green)' }} />
+        <div>
+          <div className="ag-detail-who">{s.userName ?? 'Sem morador atribuído'}</div>
+          <div className="ag-detail-sub">{s.unitLabel ?? 'sem unidade'} · {chargerName}</div>
+        </div>
+        <span className={`ag-status ${end ? 'done' : 'live'}`}>{end ? 'Realizada' : 'Carregando'}</span>
+      </div>
+      <dl className="ag-kv">
+        <dt>Horário</dt>
+        <dd>
+          {fmtDay(s.startedAt)} · {fmtTime(s.startedAt)} – {end ? fmtTime(end) : 'agora'}
+          {end && local(s.startedAt).day !== local(end).day && ` (${fmtDay(end)})`}
+        </dd>
+        <dt>Duração</dt>
+        <dd>{fmtMinutes(minutes)}</dd>
+        <dt>Energia</dt>
+        <dd>{fmtKwh(s.energyKwh)}</dd>
+        {s.idleMin > 0 && (
+          <>
+            <dt>Ociosidade</dt>
+            <dd>{fmtMinutes(s.idleMin)} plugado sem carregar</dd>
+          </>
+        )}
+        <dt>Valor cobrado</dt>
+        <dd>{s.chargedCents !== null ? fmtBRL(s.chargedCents) : '—'}</dd>
+        <dt>Agendamento</dt>
+        <dd>
+          {booked ? (
+            <button className="link-btn" onClick={onOpenReservation}>
+              {fmtTime(booked.startsAt!)} – {fmtTime(booked.endsAt!)} · ver
+            </button>
+          ) : (
+            'avulsa (sem agendamento)'
+          )}
+        </dd>
+      </dl>
+    </Modal>
+  )
+}
+
 export default function Agenda() {
   const [view, setView] = useState<View>(() => (typeof window !== 'undefined' && window.innerWidth < 700 ? 'day' : 'week'))
   const [anchor, setAnchor] = useState<Ymd>(() => ymdOf(new Date()))
   const [withCancelled, setWithCancelled] = useState(false)
   const [hidden, setHidden] = useState<Set<string>>(new Set())
+  const [show, setShow] = useState<Show>('all')
   const [openId, setOpenId] = useState<string | null>(null)
+  const [openSes, setOpenSes] = useState<string | null>(null)
   const [now, setNow] = useState(() => new Date())
   useEffect(() => {
     const t = setInterval(() => setNow(new Date()), 60_000)
@@ -256,13 +319,24 @@ export default function Agenda() {
   const reservations = useMemo(() => (data?.reservations ?? []).filter((r) => !hidden.has(r.chargerId)), [data, hidden])
   const sessions = useMemo(() => (data?.sessions ?? []).filter((s) => !hidden.has(s.chargerId)), [data, hidden])
 
+  const realOf = useMemo(() => matchSessions(data?.reservations ?? [], data?.sessions ?? [], now), [data, now])
+  // sessão → reserva que ela atendeu (as que não atenderam nenhuma são avulsas)
+  const bookingOf = useMemo(() => {
+    const m = new Map<string, AgendaReservation>()
+    for (const r of data?.reservations ?? []) {
+      const s = realOf.get(r.id)
+      if (s) m.set(s.id, r)
+    }
+    return m
+  }, [data, realOf])
+
   // recorta cada reserva/sessão nos dias visíveis (uma que vira a noite aparece nos dois dias)
   const perDay = useMemo(
     () =>
       days.map((d0) => {
         const d1 = new Date(d0.getTime() + DAY_MS)
-        const res: ResBlock[] = []
-        for (const r of reservations) {
+        const items: Item[] = []
+        for (const r of show === 'ses' ? [] : reservations) {
           const occ = new Date(r.occupiedFromAt ?? r.startsAt!)
           const s = new Date(r.startsAt!)
           const e = new Date(r.endsAt!)
@@ -271,7 +345,8 @@ export default function Agenda() {
           const b = e > d1 ? d1 : e
           const top = minutesInto(a, d0)
           const leadEnd = s < a ? a : s > b ? b : s
-          res.push({
+          items.push({
+            kind: 'res',
             r,
             top,
             bottom: Math.max(minutesInto(b, d0), top + 20),
@@ -280,17 +355,23 @@ export default function Agenda() {
             contEnd: e > d1,
           })
         }
-        const ses: SesBlock[] = []
-        for (const s of sessions) {
+        for (const s of show === 'res' ? [] : sessions) {
           const a0 = new Date(s.startedAt)
           const b0 = s.endedAt ? new Date(s.endedAt) : now
           if (a0 >= d1 || b0 <= d0) continue
           const top = minutesInto(a0 < d0 ? d0 : a0, d0)
-          ses.push({ s, top, bottom: Math.max(minutesInto(b0 > d1 ? d1 : b0, d0), top + 6) })
+          items.push({
+            kind: 'ses',
+            s,
+            top,
+            bottom: Math.max(minutesInto(b0 > d1 ? d1 : b0, d0), top + 20),
+            contStart: a0 < d0,
+            contEnd: b0 > d1,
+          })
         }
-        return { res: layout(res), ses }
+        return layout(items)
       }),
-    [days, reservations, sessions, now],
+    [days, reservations, sessions, now, show],
   )
 
   // abre a grade um pouco antes da hora atual (de madrugada, a partir de 0h), não sempre à meia-noite
@@ -317,13 +398,15 @@ export default function Agenda() {
       return n
     })
 
-  const realOf = useMemo(() => matchSessions(data?.reservations ?? [], data?.sessions ?? [], now), [data, now])
   const active = reservations.filter((r) => r.status === 'SCHEDULED')
   const finished = active.filter((r) => new Date(r.endsAt!) <= now)
   const done = finished.filter((r) => realOf.has(r.id)).length
   const kwh = active.reduce((t, r) => t + (r.energyKwh ?? 0), 0)
   const cents = active.reduce((t, r) => t + (r.estimatedCostCents ?? 0), 0)
+  const realKwh = sessions.reduce((t, s) => t + s.energyKwh, 0)
+  const walkIns = sessions.filter((s) => !bookingOf.has(s.id)).length
   const open = openId ? data?.reservations.find((r) => r.id === openId) : null
+  const openS = openSes ? data?.sessions.find((s) => s.id === openSes) : null
 
   return (
     <div className="c ag">
@@ -342,8 +425,25 @@ export default function Agenda() {
         </div>
         <div className="ag-nav">
           <label className="check-lbl">
-            <input type="checkbox" checked={withCancelled} onChange={(e) => setWithCancelled(e.target.checked)} /> canceladas
+            <input
+              type="checkbox"
+              checked={withCancelled}
+              disabled={show === 'ses'}
+              onChange={(e) => setWithCancelled(e.target.checked)}
+            />{' '}
+            canceladas
           </label>
+          <span className="seg">
+            <button className={show === 'all' ? 'on' : ''} onClick={() => setShow('all')}>
+              tudo
+            </button>
+            <button className={show === 'res' ? 'on' : ''} onClick={() => setShow('res')}>
+              agendados
+            </button>
+            <button className={show === 'ses' ? 'on' : ''} onClick={() => setShow('ses')}>
+              realizadas
+            </button>
+          </span>
           <span className="seg">
             <button className={view === 'day' ? 'on' : ''} onClick={() => setView('day')}>
               dia
@@ -356,26 +456,36 @@ export default function Agenda() {
       </div>
 
       <div className="ag-summary">
-        <span>
-          <b>{active.length}</b> {active.length === 1 ? 'agendamento' : 'agendamentos'}
-        </span>
-        <span>
-          <b>{fmtKwh(kwh)}</b> previstos
-        </span>
-        <span>
-          <b>{fmtBRL(cents)}</b> estimados
-        </span>
-        {finished.length > 0 && (
-          <span className="ag-sum-done">
-            <b>
-              {done}/{finished.length}
-            </b>{' '}
-            realizadas
-          </span>
+        {show !== 'ses' && (
+          <>
+            <span>
+              <b>{active.length}</b> {active.length === 1 ? 'agendamento' : 'agendamentos'}
+            </span>
+            <span>
+              <b>{fmtKwh(kwh)}</b> previstos
+            </span>
+            <span>
+              <b>{fmtBRL(cents)}</b> estimados
+            </span>
+            {finished.length > 0 && (
+              <span className="ag-sum-done">
+                <b>
+                  {done}/{finished.length}
+                </b>{' '}
+                realizadas
+              </span>
+            )}
+            {finished.length - done > 0 && (
+              <span className="ag-sum-miss">
+                <b>{finished.length - done}</b> sem recarga
+              </span>
+            )}
+          </>
         )}
-        {finished.length - done > 0 && (
-          <span className="ag-sum-miss">
-            <b>{finished.length - done}</b> sem recarga
+        {show !== 'res' && (
+          <span className="ag-sum-done">
+            <b>{sessions.length}</b> {sessions.length === 1 ? 'sessão' : 'sessões'} · <b>{fmtKwh(realKwh)}</b> carregados
+            {walkIns > 0 && ` · ${walkIns} ${walkIns === 1 ? 'avulsa' : 'avulsas'}`}
           </span>
         )}
       </div>
@@ -429,29 +539,55 @@ export default function Agenda() {
             </div>
             {days.map((d0, i) => (
               <div key={d0.toISOString()} className={`ag-col ${isToday(d0) ? 'today' : ''}`}>
-                {perDay[i]!.ses.map((b) => (
-                  <div
-                    key={b.s.id}
-                    className={`ag-ses ${b.s.endedAt ? '' : 'live'}`}
-                    style={{ top: b.top * (HOUR_PX / 60), height: (b.bottom - b.top) * (HOUR_PX / 60) }}
-                    title={`Recarga real · ${fmtTime(b.s.startedAt)}–${b.s.endedAt ? fmtTime(b.s.endedAt) : 'agora'} · ${fmtKwh(b.s.energyKwh)}${b.s.userName ? ` · ${b.s.userName}` : ''}`}
-                  />
-                ))}
-                {perDay[i]!.res.map((b) => {
-                  const st = statusOf(b.r, now, realOf.get(b.r.id))
+                {perDay[i]!.map((b) => {
                   const h = (b.bottom - b.top) * (HOUR_PX / 60)
-                  const color = colorOf(b.r.chargerId)
+                  const box = {
+                    top: b.top * (HOUR_PX / 60),
+                    height: h - 2,
+                    left: `calc(2px + (100% - 4px) * ${b.lane / b.lanes})`,
+                    width: `calc((100% - 4px) / ${b.lanes} - 2px)`,
+                  }
+                  // faixa estreita (semana com blocos lado a lado): só o primeiro nome
+                  const narrow = view === 'week' && b.lanes > 1
+                  const cont = `${b.contStart ? 'cont-start' : ''} ${b.contEnd ? 'cont-end' : ''}`
+                  if (b.kind === 'ses') {
+                    const s = b.s
+                    const booked = bookingOf.get(s.id)
+                    return (
+                      <button
+                        key={`s-${s.id}`}
+                        className={`ag-ev ses ${s.endedAt ? '' : 'live'} ${cont}`}
+                        style={box}
+                        onClick={() => setOpenSes(s.id)}
+                        title={`Sessão realizada · ${s.userName ?? 'sem morador'} · ${fmtTime(s.startedAt)}–${s.endedAt ? fmtTime(s.endedAt) : 'agora'} · ${fmtKwh(s.energyKwh)}`}
+                      >
+                        <span className="ag-ev-body">
+                          <span className="t">
+                            <span className="ag-ok">{I.bolt}</span>
+                            {fmtTime(s.startedAt)} – {s.endedAt ? fmtTime(s.endedAt) : 'agora'}
+                          </span>
+                          {h >= 34 && (
+                            <span className="n">
+                              {s.unitLabel && !narrow ? `${s.unitLabel} · ` : ''}
+                              {s.userName ? (view === 'week' ? s.userName.split(' ')[0] : s.userName) : 'sem morador'}
+                            </span>
+                          )}
+                          {h >= 58 && (
+                            <span className="p">
+                              {fmtKwh(s.energyKwh)}
+                              {!booked && ' · avulsa'}
+                            </span>
+                          )}
+                        </span>
+                      </button>
+                    )
+                  }
+                  const st = statusOf(b.r, now, realOf.get(b.r.id))
                   return (
                     <button
                       key={b.r.id}
-                      className={`ag-ev ${st.cls} ${b.contStart ? 'cont-start' : ''} ${b.contEnd ? 'cont-end' : ''}`}
-                      style={{
-                        top: b.top * (HOUR_PX / 60),
-                        height: h - 2,
-                        left: `calc(8px + (100% - 10px) * ${b.lane / b.lanes})`,
-                        width: `calc((100% - 10px) / ${b.lanes} - 2px)`,
-                        ['--ev' as string]: color,
-                      }}
+                      className={`ag-ev ${st.cls} ${cont}`}
+                      style={{ ...box, ['--ev' as string]: colorOf(b.r.chargerId) }}
                       onClick={() => setOpenId(b.r.id)}
                       title={`${b.r.userName}${b.r.unitLabel ? ` · ${b.r.unitLabel}` : ''} · ${fmtTime(b.r.startsAt!)}–${fmtTime(b.r.endsAt!)}`}
                     >
@@ -464,7 +600,7 @@ export default function Agenda() {
                         </span>
                         {h >= 34 && (
                           <span className="n">
-                            {b.r.unitLabel ? `${b.r.unitLabel} · ` : ''}
+                            {b.r.unitLabel && !narrow ? `${b.r.unitLabel} · ` : ''}
                             {view === 'week' ? b.r.userName.split(' ')[0] : b.r.userName}
                           </span>
                         )}
@@ -483,7 +619,7 @@ export default function Agenda() {
       <div className="heat-legend">
         <span>
           <span className="sw" style={{ background: 'var(--pink)' }} />
-          janela de carga
+          agendamento (janela de carga)
         </span>
         <span>
           <span className="sw ag-sw-lead" />
@@ -491,18 +627,21 @@ export default function Agenda() {
         </span>
         <span>
           <span className="sw" style={{ background: 'var(--green)' }} />
-          recarga real (SEMS)
+          sessão realizada (SEMS)
         </span>
         <span>
           <span className="ag-ok">{I.check}</span>
-          realizada
+          agendamento cumprido
         </span>
         <span>
           <span className="ag-miss">!</span>
           não realizada (passou sem recarga)
         </span>
       </div>
-      <div className="hint-line">Toque num agendamento para ver os detalhes ou cancelar. Na semana, toque no dia para abrir só ele.</div>
+      <div className="hint-line">
+        Toque num bloco para ver os detalhes (e cancelar, se for um agendamento futuro). Na semana, toque no dia para
+        abrir só ele.
+      </div>
 
       {open && (
         <Detail
@@ -514,6 +653,18 @@ export default function Agenda() {
           onCancelled={() => {
             setOpenId(null)
             reload()
+          }}
+        />
+      )}
+      {openS && (
+        <SessionDetail
+          s={openS}
+          booked={bookingOf.get(openS.id)}
+          chargerName={nameOf(openS.chargerId)}
+          onClose={() => setOpenSes(null)}
+          onOpenReservation={() => {
+            setOpenId(bookingOf.get(openS.id)!.id)
+            setOpenSes(null)
           }}
         />
       )}
