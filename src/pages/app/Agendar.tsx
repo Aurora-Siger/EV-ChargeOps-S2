@@ -196,7 +196,6 @@ export default function Agendar({ go }: { go: (t: Tab) => void }) {
     setPlacePick(id)
     setDayPick(null)
     setSlotPick(null)
-    setWizardStep(1)
   }
 
   // "agendar pra depois": horários de início dos próximos 7 dias, numa busca só (trocar de dia é instantâneo)
@@ -542,6 +541,11 @@ export default function Agendar({ go }: { go: (t: Tab) => void }) {
                   )
                 })}
               </div>
+              <div className="wiz-nav">
+                <button className="btn btn-primary" onClick={() => setWizardStep(1)}>
+                  Continuar
+                </button>
+              </div>
             </div>
           )}
 
@@ -636,15 +640,15 @@ export default function Agendar({ go }: { go: (t: Tab) => void }) {
                 vehicle={vehicle}
                 active={activeTargetLater}
                 enabled={TARGETS}
-                onPick={(t) => {
-                  // mantém o horário do passo 1 (o passo 3 avisa se ele não couber com a nova meta)
-                  setTarget(t)
-                  setWizardStep(3)
-                }}
+                onPick={setTarget}
               />
               <div className="wiz-nav">
                 <button className="btn btn-ghost" onClick={() => setWizardStep(1)}>
                   Voltar
+                </button>
+                {/* mantém o horário do passo 2 (o passo 4 avisa se ele não couber com a nova meta) */}
+                <button className="btn btn-primary" onClick={() => setWizardStep(3)}>
+                  Continuar
                 </button>
               </div>
             </div>

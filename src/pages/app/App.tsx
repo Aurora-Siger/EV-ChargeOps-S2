@@ -1,3 +1,4 @@
+import ThemeToggle from '../../components/ThemeToggle'
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import ChargerMap from '../../components/ChargerMap'
@@ -176,6 +177,7 @@ function Shell({ onSwitchWorkspace }: { onSwitchWorkspace: (id: string) => void 
   return (
     <MeContext.Provider value={{ me: me.data, reloadMe: me.reload, switchWorkspace: onSwitchWorkspace }}>
       <div className="app-root">
+        <ThemeToggle className="theme-corner" />
         <Sidebar
           me={me.data}
           onLogout={logout}

@@ -97,7 +97,6 @@ export default function Home({ go }: { go: (t: Tab) => void }) {
       <div className="desk-cols">
         <div>
           <div className={`status-card ${home?.free === 0 ? 'busy' : ''}`}>
-            <div className="shine" />
             <span className="st">
               <span className="dot" /> {statusText}
             </span>

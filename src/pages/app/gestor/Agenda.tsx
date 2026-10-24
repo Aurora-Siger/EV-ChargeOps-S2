@@ -263,7 +263,7 @@ function SessionDetail({
   return (
     <Modal title="Sessão realizada" onClose={onClose}>
       <div className="ag-detail-head">
-        <span className="ag-dot" style={{ background: 'var(--green)' }} />
+        <span className="ag-dot" style={{ background: 'var(--text3)' }} />
         <div>
           <div className="ag-detail-who">{s.userName ?? 'Sem morador atribuído'}</div>
           <div className="ag-detail-sub">{s.unitLabel ?? 'sem unidade'} · {chargerName}</div>
@@ -675,9 +675,10 @@ export default function Agenda() {
       <div className="heat-legend">
         {showPrices && (data?.prices.length ?? 0) > 0 && (
           <>
+            <b className="lg-title">Faixa lateral · preço da hora</b>
             <span>
               <span className="sw ag-sw-cheap" />
-              hora barata
+              barata
             </span>
             <span>
               <span className="sw ag-sw-mid" />
@@ -685,10 +686,11 @@ export default function Agenda() {
             </span>
             <span>
               <span className="sw ag-sw-peak" />
-              hora de pico
+              pico
             </span>
           </>
         )}
+        <b className="lg-title">Blocos</b>
         <span>
           <span className="sw" style={{ background: 'var(--pink)' }} />
           agendamento (janela de carga)
@@ -698,7 +700,7 @@ export default function Agenda() {
           carro plugado esperando a carga
         </span>
         <span>
-          <span className="sw" style={{ background: 'var(--green)' }} />
+          <span className="sw" style={{ background: 'var(--bg4)', border: '1px solid var(--text3)' }} />
           sessão realizada (SEMS)
         </span>
         <span>

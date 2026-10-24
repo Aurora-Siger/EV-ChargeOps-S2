@@ -293,18 +293,18 @@ function LastChargeBlock({ lc }: { lc: LastCharge }) {
                 <XAxis
                   dataKey="tempo"
                   interval={Math.ceil(curve.length / 5) - 1}
-                  tick={{ fill: '#8e95a6', fontSize: 10, fontFamily: 'JetBrains Mono, monospace' }}
+                  tick={{ fill: 'var(--text2)', fontSize: 10, fontFamily: 'JetBrains Mono, monospace' }}
                   axisLine={false}
                   tickLine={false}
                 />
                 <YAxis
-                  tick={{ fill: '#8e95a6', fontSize: 10, fontFamily: 'JetBrains Mono, monospace' }}
+                  tick={{ fill: 'var(--text2)', fontSize: 10, fontFamily: 'JetBrains Mono, monospace' }}
                   axisLine={false}
                   tickLine={false}
                   width={34}
                   tickFormatter={(v: number) => `${v}kW`}
                 />
-                <Tooltip content={<PowerTooltip />} cursor={{ stroke: 'rgba(255,255,255,0.2)' }} />
+                <Tooltip content={<PowerTooltip />} cursor={{ stroke: 'var(--bd2)' }} />
                 <Area type="monotone" dataKey="kw" stroke="#fbbf24" strokeWidth={2} fill="url(#gradPower)" />
               </AreaChart>
             </ResponsiveContainer>

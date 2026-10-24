@@ -1,6 +1,6 @@
 type Props = {
   size?: number
-  mood?: 'happy' | 'wink' | 'grin' | 'stern' | 'love'
+  mood?: 'happy' | 'wink' | 'grin' | 'stern'
   /** headset de atendimento — só no contexto do chatbot */
   headset?: boolean
   /** acessórios temáticos: óculos de fiscal ou touca de quem carrega de madrugada */
@@ -15,10 +15,6 @@ export default function Volt({ size = 72, mood = 'happy', headset = false, acces
         <linearGradient id="voltBody" x1="0" y1="0" x2="1" y2="1">
           <stop offset="0%" stopColor="#F472B6" />
           <stop offset="100%" stopColor="#E8185A" />
-        </linearGradient>
-        <linearGradient id="voltHeart" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#F87171" />
-          <stop offset="100%" stopColor="#B91C1C" />
         </linearGradient>
       </defs>
       {/* faísca / antena */}
@@ -46,18 +42,6 @@ export default function Volt({ size = 72, mood = 'happy', headset = false, acces
           <circle cx="46.6" cy="46.4" r="1.7" fill="#fff" />
           <circle cx="76.6" cy="46.4" r="1.7" fill="#fff" />
         </>
-      ) : mood === 'love' ? (
-        <>
-          {/* apaixonado por quem carrega no vazio: olhos de coração */}
-          <path
-            d="M45 55c-8-5.5-10.5-12-5.2-15.7 2.6-1.9 5.2.2 5.2 2.7 0-2.5 2.6-4.6 5.2-2.7 5.3 3.7 2.8 10.2-5.2 15.7Z"
-            fill="url(#voltHeart)"
-          />
-          <path
-            d="M75 55c-8-5.5-10.5-12-5.2-15.7 2.6-1.9 5.2.2 5.2 2.7 0-2.5 2.6-4.6 5.2-2.7 5.3 3.7 2.8 10.2-5.2 15.7Z"
-            fill="url(#voltHeart)"
-          />
-        </>
       ) : (
         <>
           <circle cx="45" cy="46" r="6" fill="#0C0D12" />
@@ -79,9 +63,6 @@ export default function Volt({ size = 72, mood = 'happy', headset = false, acces
       ) : mood === 'stern' ? (
         /* bico torto de quem vai mandar a fatura */
         <path d="M51 64 Q61 61 69 65" stroke="#0C0D12" strokeWidth="4" strokeLinecap="round" fill="none" />
-      ) : mood === 'love' ? (
-        /* sorriso derretido */
-        <path d="M48 60 Q60 74 72 60" stroke="#0C0D12" strokeWidth="4" strokeLinecap="round" fill="none" />
       ) : (
         <path d="M50 60 Q60 69 70 60" stroke="#0C0D12" strokeWidth="4" strokeLinecap="round" fill="none" />
       )}
