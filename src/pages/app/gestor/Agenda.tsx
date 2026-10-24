@@ -60,10 +60,46 @@ function layout<T extends { top: number; bottom: number }>(items: T[]): Placed<T
 type ResBlock = { r: AgendaReservation; top: number; bottom: number; leadPx: number; contStart: boolean; contEnd: boolean }
 type SesBlock = { s: AgendaSession; top: number; bottom: number }
 
-function statusOf(r: AgendaReservation, now: Date) {
+/** Folga pra casar reserva com sessão: o morador pluga um pouco antes ou depois do combinado. */
+const MATCH_SLACK_MS = 60 * 60_000
+
+/**
+ * A recarga real (SEMS) que atendeu a reserva: mesmo carregador, mesma pessoa (ou sessão ainda
+ * sem morador) e sobreposta à janela, com folga de 1h nas pontas. Sem ela, a reserva que já
+ * passou é "não realizada".
+ */
+function matchSessions(reservations: AgendaReservation[], sessions: AgendaSession[], now: Date) {
+  const m = new Map<string, AgendaSession>()
+  const used = new Set<string>()
+  for (const r of reservations) {
+    if (r.status !== 'SCHEDULED') continue
+    const a = new Date(r.occupiedFromAt ?? r.startsAt!).getTime() - MATCH_SLACK_MS
+    const b = new Date(r.endsAt!).getTime() + MATCH_SLACK_MS
+    const s = sessions.find(
+      (s) =>
+        !used.has(s.id) &&
+        s.chargerId === r.chargerId &&
+        (s.userId === r.userId || s.userId === null) &&
+        new Date(s.startedAt).getTime() < b &&
+        (s.endedAt ? new Date(s.endedAt) : now).getTime() > a,
+    )
+    if (s) {
+      m.set(r.id, s)
+      used.add(s.id)
+    }
+  }
+  return m
+}
+
+type Status = { label: string; cls: string; done?: boolean }
+
+function statusOf(r: AgendaReservation, now: Date, real?: AgendaSession): Status {
   if (r.status === 'CANCELLED') return { label: 'Cancelada', cls: 'cancelled' }
   if (r.status === 'EXPIRED') return { label: 'Expirada', cls: 'cancelled' }
-  if (new Date(r.endsAt!) <= now) return { label: 'Concluída', cls: 'past' }
+  if (real && !real.endedAt) return { label: 'Carregando', cls: 'live' }
+  if (new Date(r.endsAt!) <= now)
+    return real ? { label: 'Realizada', cls: 'done', done: true } : { label: 'Não realizada', cls: 'missed' }
+  if (real) return { label: 'Realizada', cls: 'done', done: true }
   if (new Date(r.occupiedFromAt ?? r.startsAt!) <= now) return { label: 'Em andamento', cls: 'live' }
   return { label: 'Agendada', cls: '' }
 }
@@ -81,19 +117,21 @@ function rangeLabel(view: View, days: Date[]) {
 
 function Detail({
   r,
+  real,
   chargerName,
   color,
   onClose,
   onCancelled,
 }: {
   r: AgendaReservation
+  real?: AgendaSession
   chargerName: string
   color: string
   onClose: () => void
   onCancelled: () => void
 }) {
   const now = new Date()
-  const st = statusOf(r, now)
+  const st = statusOf(r, now, real)
   const act = useAction()
   const [confirming, setConfirming] = useState(false)
   const canCancel = r.status === 'SCHEDULED' && new Date(r.endsAt!) > now
@@ -122,6 +160,16 @@ function Detail({
           {fmtDay(r.startsAt!)} · {fmtTime(r.startsAt!)} – {fmtTime(r.endsAt!)}
           {local(r.startsAt!).day !== local(r.endsAt!).day && ` (${fmtDay(r.endsAt!)})`}
         </dd>
+        {st.cls !== 'cancelled' && new Date(r.occupiedFromAt ?? r.startsAt!) <= now && (
+          <>
+            <dt>Recarga real (SEMS)</dt>
+            <dd>
+              {real
+                ? `${fmtTime(real.startedAt)} – ${real.endedAt ? fmtTime(real.endedAt) : 'agora'} · ${fmtKwh(real.energyKwh)}`
+                : 'nenhuma sessão na janela'}
+            </dd>
+          </>
+        )}
         {r.occupiedFromAt && (
           <>
             <dt>Carregador ocupado desde</dt>
@@ -269,7 +317,10 @@ export default function Agenda() {
       return n
     })
 
+  const realOf = useMemo(() => matchSessions(data?.reservations ?? [], data?.sessions ?? [], now), [data, now])
   const active = reservations.filter((r) => r.status === 'SCHEDULED')
+  const finished = active.filter((r) => new Date(r.endsAt!) <= now)
+  const done = finished.filter((r) => realOf.has(r.id)).length
   const kwh = active.reduce((t, r) => t + (r.energyKwh ?? 0), 0)
   const cents = active.reduce((t, r) => t + (r.estimatedCostCents ?? 0), 0)
   const open = openId ? data?.reservations.find((r) => r.id === openId) : null
@@ -314,9 +365,19 @@ export default function Agenda() {
         <span>
           <b>{fmtBRL(cents)}</b> estimados
         </span>
-        <span>
-          <b>{sessions.length}</b> {sessions.length === 1 ? 'recarga real' : 'recargas reais'}
-        </span>
+        {finished.length > 0 && (
+          <span className="ag-sum-done">
+            <b>
+              {done}/{finished.length}
+            </b>{' '}
+            realizadas
+          </span>
+        )}
+        {finished.length - done > 0 && (
+          <span className="ag-sum-miss">
+            <b>{finished.length - done}</b> sem recarga
+          </span>
+        )}
       </div>
 
       {data && data.chargers.length > 1 && (
@@ -377,7 +438,7 @@ export default function Agenda() {
                   />
                 ))}
                 {perDay[i]!.res.map((b) => {
-                  const st = statusOf(b.r, now)
+                  const st = statusOf(b.r, now, realOf.get(b.r.id))
                   const h = (b.bottom - b.top) * (HOUR_PX / 60)
                   const color = colorOf(b.r.chargerId)
                   return (
@@ -397,6 +458,8 @@ export default function Agenda() {
                       {b.leadPx > 0 && <span className="ag-lead" style={{ height: b.leadPx }} />}
                       <span className="ag-ev-body">
                         <span className="t">
+                          {st.done && <span className="ag-ok">{I.check}</span>}
+                          {st.cls === 'missed' && <span className="ag-miss">!</span>}
                           {fmtTime(b.r.startsAt!)} – {fmtTime(b.r.endsAt!)}
                         </span>
                         {h >= 34 && (
@@ -430,12 +493,21 @@ export default function Agenda() {
           <span className="sw" style={{ background: 'var(--green)' }} />
           recarga real (SEMS)
         </span>
+        <span>
+          <span className="ag-ok">{I.check}</span>
+          realizada
+        </span>
+        <span>
+          <span className="ag-miss">!</span>
+          não realizada (passou sem recarga)
+        </span>
       </div>
       <div className="hint-line">Toque num agendamento para ver os detalhes ou cancelar. Na semana, toque no dia para abrir só ele.</div>
 
       {open && (
         <Detail
           r={open}
+          real={realOf.get(open.id)}
           chargerName={nameOf(open.chargerId)}
           color={colorOf(open.chargerId)}
           onClose={() => setOpenId(null)}

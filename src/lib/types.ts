@@ -403,6 +403,7 @@ export type AgendaSession = {
   startedAt: string
   endedAt: string | null
   energyKwh: number
+  userId: string | null
   userName: string | null
   unitLabel: string | null
 }

@@ -7231,8 +7231,71 @@ img {
   border-bottom-right-radius: 0;
 }
 
-.ag-ev.past {
-  opacity: 0.55;
+.ag-ev.done {
+  opacity: 0.8;
+}
+
+.ag-ev.missed {
+  opacity: 0.6;
+  background: transparent;
+  border: 1px dashed var(--amber-b);
+  border-left: 3px solid var(--amber);
+}
+
+.ag-ok,
+.ag-miss {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  margin-right: 4px;
+  vertical-align: -2px;
+  font-family: var(--sans);
+  font-size: 9.5px;
+  font-weight: 800;
+  flex-shrink: 0;
+}
+
+.ag-ok {
+  background: var(--green);
+  color: #06281c;
+}
+
+.ag-ok svg {
+  width: 9px;
+  height: 9px;
+}
+
+.ag-miss {
+  background: var(--amber);
+  color: #2b1d00;
+}
+
+.ag-ev-body .t {
+  display: flex;
+  align-items: center;
+}
+
+.ag-sum-done b {
+  color: var(--green);
+}
+
+.ag-sum-miss b {
+  color: var(--amber);
+}
+
+.ag-status.done {
+  background: var(--green-l);
+  border-color: var(--green-b);
+  color: var(--green);
+}
+
+.ag-status.missed {
+  background: var(--amber-l);
+  border-color: var(--amber-b);
+  color: var(--amber);
 }
 
 .ag-ev.live {

@@ -418,6 +418,7 @@ export const reservationsService = {
           startedAt: s.startedAt,
           endedAt: s.endedAt,
           energyKwh: s.energyKwh,
+          userId: s.userId,
           userName: s.userName,
           unitLabel: s.unitLabel,
         })),
