@@ -194,24 +194,23 @@ export const meInternalRoutes = new Hono()
     const now = Date.now()
     if (await startsNowPlugged(userId, body)) {
       const p = await reservationsService.plugInPreview(userId, req)
-      return c.json({
+      // sem janela agora (a carga bate na reserva seguinte): cai na busca do próximo horário livre
+      if (p.window) return c.json({
         ...goal,
         pluggedIn: true,
         kind: 'start',
         fromLocal: localHourLabel(new Date(now)),
         assumedStartSoc: p.assumedStartSoc,
-        options: p.window
-          ? [
-              {
-                horario: 'agora',
-                startsLocal: 'agora',
-                endsLocal: localHourLabel(p.window.end),
-                level: p.window.level,
-                estimatedCostCents: p.window.costCents,
-                recommended: true,
-              },
-            ]
-          : [],
+        options: [
+          {
+            horario: 'agora',
+            startsLocal: 'agora',
+            endsLocal: localHourLabel(p.window.end),
+            level: p.window.level,
+            estimatedCostCents: p.window.costCents,
+            recommended: true,
+          },
+        ],
       })
     }
     const at = requestedAt(now, body.hoursFromNow)
@@ -226,7 +225,18 @@ export const meInternalRoutes = new Hono()
         ? { from: new Date(now), to: at }
         : { from: new Date(at.getTime() - START_SNAP_MS), to: new Date(at.getTime() + START_OPTIONS_HOURS * HOUR_MS) }
     const { slots } = await reservationsService.startSlots(userId, { ...req, ...window })
-    const usable = slots.filter((s) => s.free && s.costCents !== null && (body.kind === 'start' || s.endsAt <= at))
+    let usable = slots.filter((s) => s.free && s.costCents !== null && (body.kind === 'start' || s.endsAt <= at))
+    // Início sem nenhum horário livre perto do pedido (carregador reservado, fora do
+    // funcionamento): em vez de devolver nada, procura a primeira vaga no horizonte inteiro.
+    const widened = body.kind === 'start' && usable.length === 0
+    if (widened) {
+      const wide = await reservationsService.startSlots(userId, {
+        ...req,
+        from: window.from,
+        to: new Date(now + RESERVATION_HORIZON_DAYS * 24 * HOUR_MS),
+      })
+      usable = wide.slots.filter((s) => s.free && s.costCents !== null)
+    }
     // Prazo: a recomendada (início realista, com folga antes do prazo) e o mais cedo possível.
     const recommended = body.kind === 'start' ? usable[0] : recommendedForDeadline(usable, at)
     const options =
@@ -240,6 +250,7 @@ export const meInternalRoutes = new Hono()
       pluggedIn,
       kind: body.kind,
       ...(body.kind === 'deadline' ? { deadlineLocal: localHourLabel(at) } : { fromLocal: localHourLabel(at) }),
+      widened,
       assumedStartSoc: ASSUMED_START_SOC,
       options: options.map((s) => ({
         horario: s.now ? 'agora' : localStamp(s.startsAt),

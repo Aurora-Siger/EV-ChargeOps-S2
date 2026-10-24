@@ -270,6 +270,11 @@ def _proposal(raw: str, target_soc: int | None = None) -> str:
     limit = f"a partir de {p['fromLocal']}" if p.get("kind") == "start" else f"até {p['deadlineLocal']}"
     options = p["options"]
     if not options:
+        if p.get("kind") == "start":
+            return (
+                f"O carregador não tem horário livre nos próximos dias pra chegar a {meta}. Diga isso "
+                "numa frase e ofereça uma meta menor; não fale em prazo."
+            )
         return f"Nenhuma recarga {limit} chega a {meta}. Sugira outro horário, uma meta menor ou mais prazo."
 
     def cost(o: dict) -> int:
@@ -289,6 +294,9 @@ def _proposal(raw: str, target_soc: int | None = None) -> str:
 
     plug = "" if p["pluggedIn"] or best["horario"] == "agora" else f" O carro só precisa estar plugado até {best['startsLocal']}."
     alt = f"\nAlternativa, só se ele não quiser essa: {_line(other)}." if other else ""
+    if p.get("widened"):  # nada livre perto do pedido: a proposta já é a primeira vaga
+        limit = "no primeiro horário livre do carregador"
+        alt += f" Perto de {p['fromLocal']} o carregador está ocupado; diga isso em poucas palavras."
     # carro já plugado: começa na hora, sem a ressalva de "a bateria só é lida ao plugar"
     forecast = (
         ""

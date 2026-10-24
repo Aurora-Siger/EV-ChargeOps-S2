@@ -353,3 +353,26 @@ def test_schedule_charge_proposta_fala_em_km_e_sugere_mais_sem_meta(monkeypatch)
 
 def test_km_na_frase_nao_vira_horario():
     assert tools._kind_da_frase("preciso de uns 200 km") is None
+
+
+def test_schedule_charge_sem_vaga_perto_propoe_a_primeira_livre(monkeypatch):
+    previa = (
+        '{"targetSoc":80,"targetKm":233,"fullRangeKm":291,"defaultTarget":true,"widened":true,'
+        '"pluggedIn":false,"kind":"start","fromLocal":"sex 24/10 8h33","assumedStartSoc":20,"options":['
+        '{"horario":"2026-10-24 14:00","startsLocal":"sex 24/10 14h","endsLocal":"sex 24/10 18h05","level":"mid","estimatedCostCents":1800}]}'
+    )
+    monkeypatch.setattr(tools.httpx, "post", _fake_post([], text=previa))
+
+    result = tools.schedule_charge.invoke({}, config=LOGADO)
+
+    assert "no primeiro horário livre" in result and "começa sex 24/10 14h" in result
+    assert "não alcança" not in result and "prazo" not in result.split("\n")[0]
+
+
+def test_schedule_charge_sem_vaga_nenhuma_nao_fala_em_prazo(monkeypatch):
+    previa = '{"targetSoc":80,"targetKm":233,"widened":true,"pluggedIn":false,"kind":"start","fromLocal":"sex 24/10 8h33","assumedStartSoc":20,"options":[]}'
+    monkeypatch.setattr(tools.httpx, "post", _fake_post([], text=previa))
+
+    result = tools.schedule_charge.invoke({}, config=LOGADO)
+
+    assert "não tem horário livre" in result and "não fale em prazo" in result
