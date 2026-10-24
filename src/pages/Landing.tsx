@@ -1,4 +1,5 @@
-import { type MouseEvent as ReactMouseEvent, useEffect, useRef, useState } from 'react'
+import { type MouseEvent as ReactMouseEvent, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { forceDark } from '../lib/theme'
 import { TrendingUp, CalendarClock, MessagesSquare } from 'lucide-react'
 import { Link, useNavigate } from 'react-router-dom'
 import Reveal from '../components/Reveal'
@@ -292,6 +293,7 @@ function PhoneHero() {
 
 export default function Landing() {
   const navigate = useNavigate()
+  useLayoutEffect(forceDark, [])
 
   return (
     <>
@@ -407,7 +409,6 @@ export default function Landing() {
         <div className="container">
           <Reveal>
             <div className="section-head center">
-              <div className="eyebrow">Como funciona</div>
               <h2 className="section-title">Três passos e pronto.</h2>
             </div>
           </Reveal>
@@ -448,7 +449,6 @@ export default function Landing() {
         <div className="container">
           <Reveal>
             <div className="section-head center">
-              <div className="eyebrow">Seu copiloto de energia</div>
               <h2 className="section-title">Conheça o Volt.</h2>
               <p className="section-sub">
                 O Volt vive dentro do app e traduz números em conversa: quanto você gastou, por que custou aquilo e
@@ -486,7 +486,6 @@ export default function Landing() {
         <div className="container">
           <Reveal>
             <div className="section-head center">
-              <div className="eyebrow">Motor de IA</div>
               <h2 className="section-title">O cérebro por trás do Volt.</h2>
               <p className="section-sub" style={{ margin: '0 auto' }}>
                 Horário vazio custa até metade; horário disputado, no máximo 1,5×. Quem decide isso é a IA — em
@@ -523,7 +522,7 @@ export default function Landing() {
                     <span className="ai-ic">{c.icon}</span>
                     <span className="ai-tag">{c.tag}</span>
                   </div>
-                  <h4>{c.title}</h4>
+                  <h3>{c.title}</h3>
                   <p>{c.body}</p>
                 </div>
               </Reveal>
@@ -552,7 +551,6 @@ export default function Landing() {
         <div className="container">
           <Reveal>
             <div className="section-head center">
-              <div className="eyebrow">Rateio justo</div>
               <h2 className="section-title">Da tomada à fatura, sem mistério.</h2>
               <p className="section-sub" style={{ margin: '0 auto' }}>
                 O carregador mede cada sessão por morador — e o preço certo em cada horário espalha as recargas pelo
@@ -653,7 +651,7 @@ export default function Landing() {
                   <path d="M12 2v32M5 27l7 9 7-9" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
                 <div className="engine-talk flip">
-                  <Volt size={44} mood="love" />
+                  <Volt size={44} mood="grin" />
                   <div className="engine-bubble cheap">
                     E cada centavo vira <b>crédito</b> de quem carregou no vazio. Valeu por aliviar a rede! 💚
                   </div>
@@ -710,8 +708,8 @@ export default function Landing() {
           camera-orbit="35deg 65deg auto"
           min-camera-orbit="auto 65deg auto"
           max-camera-orbit="auto 65deg auto"
-          min-field-of-view="25deg"
-          max-field-of-view="25deg"
+          min-field-of-view="30deg"
+          max-field-of-view="30deg"
         />
         <div className="hardware-scrim" />
         <div className="container hardware-content">
@@ -838,7 +836,6 @@ export default function Landing() {
         <div className="container">
           <Reveal>
             <div className="section-head center">
-              <div className="eyebrow">Equipe</div>
               <h2 className="section-title">Quem faz o Chargefy.</h2>
             </div>
           </Reveal>

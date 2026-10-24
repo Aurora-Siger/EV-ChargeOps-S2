@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import Volt from '../../../components/Volt'
 import { currentPeriod, fmtBRL, fmtDueDate, fmtKwh, monthName, STATE_LABEL, STATE_TAG } from '../../../lib/format'
 import { api } from '../../../lib/http'
 import type { Cycle, CycleLine } from '../../../lib/types'
@@ -49,7 +48,7 @@ export default function Rateio({ period, canWrite, goCobrancas }: { period: stri
 
   return (
     <>
-      <div className="kpi2">
+      <div className="kpi2 kpi-strip">
         <div className="kpi">
           <div className="k">Energia cobrada</div>
           <div className="v">{fmtBRL(c.totals.chargedCents)}</div>
@@ -83,13 +82,13 @@ export default function Rateio({ period, canWrite, goCobrancas }: { period: stri
       <div className="c">
         <div className="c-label">Composição financeira do mês</div>
         <div className="bill-split">
-          <div style={{ width: share(c.totals.chargedCents), background: 'linear-gradient(90deg,#f472b6,#e8185a)' }} />
+          <div style={{ width: share(c.totals.chargedCents), background: 'var(--pink)' }} />
           <div style={{ width: share(c.totals.creditCents), background: 'var(--amber)' }} />
           <div style={{ width: share(fixedAfterCredit), background: 'var(--text3)' }} />
         </div>
         <div className="bill-legend">
           <span>
-            <span className="sw" style={{ background: '#e8185a' }} />
+            <span className="sw" style={{ background: 'var(--pink)' }} />
             Energia · {fmtBRL(c.totals.chargedCents)}
           </span>
           <span>
@@ -103,19 +102,17 @@ export default function Rateio({ period, canWrite, goCobrancas }: { period: stri
         </div>
       </div>
 
-      <div className="volt-card">
-        <Volt size={52} />
-        <div className="bubble">
-          <div className="who">Como funciona o rateio</div>
-          <p>
-            Cada recarga custa <b>mult × kWh × tarifa base</b>, com mult entre 0,5× (horário ocioso) e 1,5× (horário
-            disputado). O custo fixo é dividido entre {c.activeUsers === 1 ? 'o' : 'os'}{' '}
-            <b>{c.activeUsers} {c.activeUsers === 1 ? 'morador ativo' : 'moradores ativos'}</b>, e o que alguém pagou acima
-            do custo real da energia <span className="good">volta como crédito na parcela fixa dele</span>, nunca como
-            lucro.
-          </p>
-        </div>
-      </div>
+      <details className="rateio-how">
+        <summary>Como o rateio é calculado</summary>
+        <p>
+          Cada recarga custa <b>mult × kWh × tarifa base</b>, com mult entre 0,5× (horário ocioso) e 1,5× (horário
+          disputado). O custo fixo é dividido entre {c.activeUsers === 1 ? 'o' : 'os'}{' '}
+          <b>
+            {c.activeUsers} {c.activeUsers === 1 ? 'morador ativo' : 'moradores ativos'}
+          </b>
+          . O que alguém pagou acima do custo real da energia volta como crédito na parcela fixa dele, nunca como lucro.
+        </p>
+      </details>
 
       <Lancamentos cycle={c} period={period} canWrite={canWrite} locked={hasPaid} onChanged={reload} />
 
@@ -146,12 +143,26 @@ export default function Rateio({ period, canWrite, goCobrancas }: { period: stri
                 {l.unitLabel ? `${l.unitLabel} · ${l.name}` : l.name}
                 {l.kind === 'CONVIDADO' && <small> · convidado</small>}
               </div>
-              <div className="s">
-                {fmtKwh(l.energyKwh)} em {l.sessionsCount} · energia {fmtBRL(l.chargedCents)} ·{' '}
-                {l.kind === 'CONVIDADO' ? 'sem parcela fixa' : `fixa ${fmtBRL(l.fixedShareCents)}`}
-                {l.creditCents > 0 && ` · crédito ${fmtBRL(l.creditCents)}`}
-                {l.adjustmentCents !== 0 &&
-                  ` · ajuste ${l.adjustmentCents < 0 ? '−' : '+'} ${fmtBRL(Math.abs(l.adjustmentCents))}`}
+              <div className="inv-stats">
+                <span>
+                  <i>Consumo</i> {fmtKwh(l.energyKwh)} · {l.sessionsCount} {l.sessionsCount === 1 ? 'recarga' : 'recargas'}
+                </span>
+                <span>
+                  <i>Energia</i> {fmtBRL(l.chargedCents)}
+                </span>
+                <span>
+                  <i>Fixa</i> {l.kind === 'CONVIDADO' ? '—' : fmtBRL(l.fixedShareCents)}
+                </span>
+                {l.creditCents > 0 && (
+                  <span>
+                    <i>Crédito</i> {fmtBRL(l.creditCents)}
+                  </span>
+                )}
+                {l.adjustmentCents !== 0 && (
+                  <span>
+                    <i>Ajuste</i> {l.adjustmentCents < 0 ? '−' : '+'} {fmtBRL(Math.abs(l.adjustmentCents))}
+                  </span>
+                )}
               </div>
               <LineSplit line={l} />
               <span className="inv-more">ver composição</span>

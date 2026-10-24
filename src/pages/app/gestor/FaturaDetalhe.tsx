@@ -28,7 +28,7 @@ export function LineSplit({ line }: { line: CycleLine }) {
   const pct = (v: number) => `${(v / total) * 100}%`
   return (
     <div className="line-split" aria-hidden="true">
-      <div style={{ width: pct(line.chargedCents), background: 'linear-gradient(90deg,#f472b6,#e8185a)' }} />
+      <div style={{ width: pct(line.chargedCents), background: 'var(--pink)' }} />
       <div style={{ width: pct(line.creditCents), background: 'var(--amber)' }} />
       <div style={{ width: pct(fixedNet), background: 'var(--text3)' }} />
     </div>

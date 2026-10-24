@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { CHARGE_LABEL, CHARGE_TAG, fmtBRL, fmtDateTime, fmtDueDate, METHOD_LABEL } from '../../lib/format'
 import { api, ApiError } from '../../lib/http'
 import type { Charge, ChargeMethod, CycleLine } from '../../lib/types'
@@ -9,6 +9,8 @@ import { I } from './icons'
 
 function CopyField({ value, label }: { value: string; label: string }) {
   const [copied, setCopied] = useState(false)
+  const timer = useRef<ReturnType<typeof setTimeout>>(undefined)
+  useEffect(() => () => clearTimeout(timer.current), [])
   const copy = async () => {
     try {
       await navigator.clipboard.writeText(value)
@@ -22,13 +24,22 @@ function CopyField({ value, label }: { value: string; label: string }) {
       ta.remove()
     }
     setCopied(true)
-    setTimeout(() => setCopied(false), 1800)
+    clearTimeout(timer.current)
+    timer.current = setTimeout(() => setCopied(false), 1800)
   }
   return (
     <div className="copy-field">
       <code>{value}</code>
-      <button className={`btn btn-sm ${copied ? 'btn-ghost' : 'btn-primary'}`} onClick={copy} aria-label={`Copiar ${label}`}>
-        {copied ? <>{I.check} Copiado</> : `Copiar ${label}`}
+      <button className={`btn btn-sm btn-ghost copy-btn ${copied ? 'copied' : ''}`} onClick={copy} aria-label={`Copiar ${label}`}>
+        <span className="copy-lbl idle" aria-hidden={copied}>
+          Copiar
+        </span>
+        <span className="copy-lbl done" aria-hidden={!copied}>
+          {I.check} Copiado
+        </span>
+        <span className="sr-only" role="status">
+          {copied ? 'Copiado' : ''}
+        </span>
       </button>
     </div>
   )

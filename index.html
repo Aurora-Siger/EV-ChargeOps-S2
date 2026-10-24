@@ -5,6 +5,17 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, interactive-widget=resizes-content" />
     <meta name="description" content="Chargefy — plataforma de gestão de recarga compartilhada para veículos elétricos. GoodWe + FIAP · Enterprise Challenge 2026." />
+    <script>
+      // aplica o tema antes do primeiro paint (evita piscar escuro no modo claro)
+      try {
+        var t = localStorage.getItem('chargefy-theme')
+        var q = new URLSearchParams(location.search).get('theme')
+        if (q === 'light' || q === 'dark') t = q
+        else if (location.pathname === '/') t = 'dark'
+        else if (t !== 'light' && t !== 'dark') t = matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark'
+        document.documentElement.dataset.theme = t
+      } catch (e) {}
+    </script>
     <title>Chargefy — Recarga compartilhada, inteligente</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />

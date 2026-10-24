@@ -9,7 +9,7 @@ import { Empty, ErrorBox, Loading, PlateChip } from '../ui'
 import { useAction } from '../../../lib/useAction'
 
 function heatColor(v: number) {
-  if (v < 0.05) return 'rgba(255,255,255,0.045)'
+  if (v < 0.05) return 'rgb(var(--ink) / 0.045)'
   return `rgba(232, 24, 90, ${0.1 + v * 0.85})`
 }
 
@@ -64,7 +64,7 @@ function Heatmap() {
           </div>
           <div className="heat-legend">
             <span>
-              <span className="sw" style={{ background: 'rgba(255,255,255,0.045)' }} />
+              <span className="sw" style={{ background: 'rgb(var(--ink) / 0.045)' }} />
               livre (0,5×)
             </span>
             <span>

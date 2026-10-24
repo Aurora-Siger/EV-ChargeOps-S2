@@ -41,7 +41,7 @@ export default function Fatura() {
   // barra de composição: energia cobrada + parcela fixa − crédito
   const parts = line
     ? [
-        { k: 'Energia (tarifa dinâmica)', v: line.chargedCents, bg: 'linear-gradient(90deg,#f472b6,#e8185a)', sw: '#e8185a' },
+        { k: 'Energia (tarifa dinâmica)', v: line.chargedCents, bg: 'var(--pink)', sw: '#e8185a' },
         { k: 'Parcela fixa', v: line.fixedShareCents - line.creditCents, bg: 'var(--text3)', sw: 'var(--text3)' },
         { k: 'Ajustes', v: line.adjustmentCents, bg: 'var(--amber)', sw: 'var(--amber)' },
       ].filter((p) => p.v > 0)

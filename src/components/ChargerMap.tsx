@@ -13,6 +13,7 @@ import {
   type PointKind,
 } from '../lib/chargePoints'
 import { useChargePoints } from '../lib/chargePointsHook'
+import { currentTheme } from '../lib/theme'
 
 type Props = {
   /** quando presente, mostra a ação do ponto (app do morador) */
@@ -100,21 +101,31 @@ export default function ChargerMap({ onChoose, chooseLabel, activeId, height = 4
     // "Leaflet" é branding opcional da lib e sai; a atribuição dos dados fica (exigência da licença)
     map.attributionControl.setPrefix(false)
 
+    let themeCleanup = () => {}
     // base sem rótulos + rótulos por cima dos pinos deixa o mapa mais limpo
     const cartoKey = import.meta.env.VITE_CARTO_API_KEY as string | undefined
     const keyParam = cartoKey ? `?key=${cartoKey}` : ''
-    L.tileLayer(`https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png${keyParam}`, {
+    const tileUrl = (kind: 'nolabels' | 'only_labels') =>
+      `https://{s}.basemaps.cartocdn.com/${currentTheme()}_${kind}/{z}/{x}/{y}{r}.png${keyParam}`
+    const base = L.tileLayer(tileUrl('nolabels'), {
       attribution: '&copy; OpenStreetMap, &copy; CARTO',
       subdomains: 'abcd',
       maxZoom: 20,
       className: 'cmap-tiles',
     }).addTo(map)
-    L.tileLayer(`https://{s}.basemaps.cartocdn.com/dark_only_labels/{z}/{x}/{y}{r}.png${keyParam}`, {
+    const labels = L.tileLayer(tileUrl('only_labels'), {
       subdomains: 'abcd',
       maxZoom: 20,
       pane: 'shadowPane',
       className: 'cmap-labels',
     }).addTo(map)
+    // troca de tema com o mapa aberto: só refaz os tiles
+    const onTheme = () => {
+      base.setUrl(tileUrl('nolabels'))
+      labels.setUrl(tileUrl('only_labels'))
+    }
+    window.addEventListener('chargefy-theme', onTheme)
+    themeCleanup = () => window.removeEventListener('chargefy-theme', onTheme)
     L.control.zoom({ position: 'bottomright' }).addTo(map)
     mapRef.current = map
 
@@ -130,6 +141,7 @@ export default function ChargerMap({ onChoose, chooseLabel, activeId, height = 4
     }
 
     return () => {
+      themeCleanup()
       map.remove()
       mapRef.current = null
       markersRef.current = {}
