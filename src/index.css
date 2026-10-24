@@ -7181,6 +7181,41 @@ img {
   min-width: 0;
 }
 
+/* faixa de preço da hora: borda colorida à esquerda + fundo leve nas baratas e no pico */
+.ag-price {
+  position: absolute;
+  left: 0;
+  right: 0;
+  border-left: 3px solid transparent;
+  pointer-events: none;
+}
+
+.ag-price.cheap {
+  border-left-color: rgba(52, 211, 153, 0.7);
+  background: rgba(52, 211, 153, 0.035);
+}
+
+.ag-price.mid {
+  border-left-color: rgba(251, 191, 36, 0.45);
+}
+
+.ag-price.peak {
+  border-left-color: var(--red);
+  background: rgba(248, 113, 113, 0.07);
+}
+
+.ag-sw-cheap {
+  background: rgba(52, 211, 153, 0.7);
+}
+
+.ag-sw-mid {
+  background: rgba(251, 191, 36, 0.45);
+}
+
+.ag-sw-peak {
+  background: var(--red);
+}
+
 .ag-col.today {
   background: rgba(232, 24, 90, 0.03);
 }

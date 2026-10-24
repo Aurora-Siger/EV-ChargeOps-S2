@@ -1,5 +1,6 @@
 import { AppError, ForbiddenError, NotFoundError } from '../../shared/errors.js'
 import { startOfLocalHour } from '../../shared/time.js'
+import { levelOf } from '../billing/domain/demand.js'
 import { billingService } from '../billing/billing.service.js'
 import { residentsService } from '../residents/residents.service.js'
 import { sessionsRepository } from '../sessions/sessions.repository.js'
@@ -401,14 +402,19 @@ export const reservationsService = {
    * no intervalo e as sessões reais de recarga no mesmo intervalo, pra comparar agendado × feito.
    */
   async agenda(workspaceId: string, from: Date, to: Date, withCancelled = false) {
-    const [chargers, reservations, sessions] = await Promise.all([
+    const homeCharger = await stationsService.homeChargerOf(workspaceId)
+    const hours = Math.ceil((to.getTime() - from.getTime()) / HOUR_MS)
+    const [chargers, reservations, sessions, curve] = await Promise.all([
       reservationsRepository.chargersOfWorkspace(workspaceId),
       reservationsRepository.ofWorkspace(workspaceId, from, to, withCancelled),
       // sessão que começou na véspera ainda pode estar no ar no começo do intervalo
       sessionsRepository.list({ workspaceId, start: new Date(from.getTime() - 24 * HOUR_MS), end: to }),
+      // barato/normal/pico de cada hora: a mesma curva que precifica a sessão (sem tarifa ativa, sem curva)
+      homeCharger ? billingService.priceCurve(homeCharger, from, hours).catch(() => null) : null,
     ])
     return {
       chargers,
+      prices: (curve?.hours ?? []).map((h) => ({ at: h.at, level: h.level, priceCentsKwh: h.priceCentsKwh })),
       reservations,
       sessions: sessions
         .filter((s) => (s.endedAt ?? new Date()) > from)
@@ -421,6 +427,7 @@ export const reservationsService = {
           durationMin: s.durationMin,
           idleMin: s.idleMin,
           chargedCents: s.chargedCents,
+          level: s.mult === null ? null : levelOf(Number(s.mult)),
           userId: s.userId,
           userName: s.userName,
           unitLabel: s.unitLabel,

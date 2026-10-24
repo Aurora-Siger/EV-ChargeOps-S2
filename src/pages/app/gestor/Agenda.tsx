@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import { fmtBRL, fmtDateTime, fmtDay, fmtKwh, fmtMinutes, fmtTime, fromLocal, local, WEEKDAYS } from '../../../lib/format'
+import { fmtBRL, fmtDateTime, fmtDay, fmtKwh, fmtMinutes, fmtTime, fromLocal, LEVEL_LABEL, local, WEEKDAYS } from '../../../lib/format'
 import { api } from '../../../lib/http'
-import type { Agenda as AgendaData, AgendaReservation, AgendaSession } from '../../../lib/types'
+import type { Agenda as AgendaData, AgendaReservation, AgendaSession, PriceLevel } from '../../../lib/types'
 import { useAction } from '../../../lib/useAction'
 import { useApi } from '../../../lib/useApi'
 import { I } from '../icons'
@@ -12,7 +12,8 @@ import { ErrorBox, Loading, Modal, PlateChip } from '../ui'
  * Cada reserva vira um bloco na janela de carga; o trecho em que o carro já ocupa o carregador
  * antes da carga começar (`occupiedFromAt`) aparece hachurado. As sessões reais da SEMS entram
  * como blocos verdes próprios, ao lado do agendamento que atenderam — dá pra bater o agendado
- * com o que aconteceu, ou ver só um dos dois.
+ * com o que aconteceu, ou ver só um dos dois. Cada hora leva a faixa de preço da tarifa dinâmica
+ * (barato/normal/pico) numa borda à esquerda do dia, com fundo verde nas baratas e rosa no pico.
  */
 
 const HOUR_PX = 44
@@ -94,6 +95,19 @@ function matchSessions(reservations: AgendaReservation[], sessions: AgendaSessio
   return m
 }
 
+/** Faixa de preço predominante de uma janela: a média do multiplicador das horas que ela cobre. */
+function windowLevel(prices: Map<number, PriceLevel>, start: Date, end: Date): PriceLevel | null {
+  const score = { cheap: 0, mid: 1, peak: 2 } as const
+  const xs: number[] = []
+  for (let t = Math.floor(start.getTime() / 3_600_000) * 3_600_000; t < end.getTime(); t += 3_600_000) {
+    const l = prices.get(t)
+    if (l) xs.push(score[l])
+  }
+  if (!xs.length) return null
+  const avg = xs.reduce((a, b) => a + b, 0) / xs.length
+  return avg < 0.5 ? 'cheap' : avg < 1.5 ? 'mid' : 'peak'
+}
+
 type Status = { label: string; cls: string; done?: boolean }
 
 function statusOf(r: AgendaReservation, now: Date, real?: AgendaSession): Status {
@@ -121,6 +135,7 @@ function rangeLabel(view: View, days: Date[]) {
 function Detail({
   r,
   real,
+  level,
   chargerName,
   color,
   onClose,
@@ -128,6 +143,7 @@ function Detail({
 }: {
   r: AgendaReservation
   real?: AgendaSession
+  level: PriceLevel | null
   chargerName: string
   color: string
   onClose: () => void
@@ -192,6 +208,14 @@ function Detail({
         <dd>{r.energyKwh !== null ? fmtKwh(r.energyKwh) : '—'}</dd>
         <dt>Custo estimado</dt>
         <dd>{r.estimatedCostCents !== null ? fmtBRL(r.estimatedCostCents) : '—'}</dd>
+        {level && (
+          <>
+            <dt>Faixa de preço</dt>
+            <dd>
+              <span className={`ptag ${level}`}>{LEVEL_LABEL[level]}</span>
+            </dd>
+          </>
+        )}
         <dt>Pronto até</dt>
         <dd>{fmtDateTime(r.deadlineAt)}</dd>
         <dt>Criada em</dt>
@@ -264,6 +288,14 @@ function SessionDetail({
         )}
         <dt>Valor cobrado</dt>
         <dd>{s.chargedCents !== null ? fmtBRL(s.chargedCents) : '—'}</dd>
+        {s.level && (
+          <>
+            <dt>Faixa de preço</dt>
+            <dd>
+              <span className={`ptag ${s.level}`}>{LEVEL_LABEL[s.level]}</span>
+            </dd>
+          </>
+        )}
         <dt>Agendamento</dt>
         <dd>
           {booked ? (
@@ -318,6 +350,13 @@ export default function Agenda() {
 
   const reservations = useMemo(() => (data?.reservations ?? []).filter((r) => !hidden.has(r.chargerId)), [data, hidden])
   const sessions = useMemo(() => (data?.sessions ?? []).filter((s) => !hidden.has(s.chargerId)), [data, hidden])
+
+  const priceByHour = useMemo(() => {
+    const m = new Map<number, PriceLevel>()
+    for (const p of data?.prices ?? []) m.set(new Date(p.at).getTime(), p.level)
+    return m
+  }, [data])
+  const [showPrices, setShowPrices] = useState(true)
 
   const realOf = useMemo(() => matchSessions(data?.reservations ?? [], data?.sessions ?? [], now), [data, now])
   // sessão → reserva que ela atendeu (as que não atenderam nenhuma são avulsas)
@@ -433,6 +472,9 @@ export default function Agenda() {
             />{' '}
             canceladas
           </label>
+          <label className="check-lbl">
+            <input type="checkbox" checked={showPrices} onChange={(e) => setShowPrices(e.target.checked)} /> preço
+          </label>
           <span className="seg">
             <button className={show === 'all' ? 'on' : ''} onClick={() => setShow('all')}>
               tudo
@@ -539,13 +581,27 @@ export default function Agenda() {
             </div>
             {days.map((d0, i) => (
               <div key={d0.toISOString()} className={`ag-col ${isToday(d0) ? 'today' : ''}`}>
+                {showPrices &&
+                  data?.prices
+                    .filter((p) => {
+                      const t = new Date(p.at).getTime()
+                      return t >= d0.getTime() && t < d0.getTime() + DAY_MS
+                    })
+                    .map((p) => (
+                      <div
+                        key={p.at}
+                        className={`ag-price ${p.level}`}
+                        style={{ top: minutesInto(new Date(p.at), d0) * (HOUR_PX / 60), height: HOUR_PX }}
+                        title={`${fmtTime(p.at)} · ${LEVEL_LABEL[p.level]} · R$ ${(p.priceCentsKwh / 100).toFixed(2).replace('.', ',')}/kWh`}
+                      />
+                    ))}
                 {perDay[i]!.map((b) => {
                   const h = (b.bottom - b.top) * (HOUR_PX / 60)
                   const box = {
                     top: b.top * (HOUR_PX / 60),
                     height: h - 2,
-                    left: `calc(2px + (100% - 4px) * ${b.lane / b.lanes})`,
-                    width: `calc((100% - 4px) / ${b.lanes} - 2px)`,
+                    left: `calc(6px + (100% - 8px) * ${b.lane / b.lanes})`,
+                    width: `calc((100% - 8px) / ${b.lanes} - 2px)`,
                   }
                   // faixa estreita (semana com blocos lado a lado): só o primeiro nome
                   const narrow = view === 'week' && b.lanes > 1
@@ -617,6 +673,22 @@ export default function Agenda() {
       </div>
 
       <div className="heat-legend">
+        {showPrices && (data?.prices.length ?? 0) > 0 && (
+          <>
+            <span>
+              <span className="sw ag-sw-cheap" />
+              hora barata
+            </span>
+            <span>
+              <span className="sw ag-sw-mid" />
+              normal
+            </span>
+            <span>
+              <span className="sw ag-sw-peak" />
+              hora de pico
+            </span>
+          </>
+        )}
         <span>
           <span className="sw" style={{ background: 'var(--pink)' }} />
           agendamento (janela de carga)
@@ -647,6 +719,7 @@ export default function Agenda() {
         <Detail
           r={open}
           real={realOf.get(open.id)}
+          level={windowLevel(priceByHour, new Date(open.startsAt!), new Date(open.endsAt!))}
           chargerName={nameOf(open.chargerId)}
           color={colorOf(open.chargerId)}
           onClose={() => setOpenId(null)}

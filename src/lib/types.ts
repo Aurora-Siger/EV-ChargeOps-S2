@@ -406,12 +406,15 @@ export type AgendaSession = {
   durationMin: number | null
   idleMin: number
   chargedCents: number | null
+  level: PriceLevel | null
   userId: string | null
   userName: string | null
   unitLabel: string | null
 }
 export type Agenda = {
   chargers: { id: string; stationName: string; maxPowerKw: string; connector: string | null }[]
+  /** Nível de preço de cada hora do intervalo (curva do carregador do condomínio). */
+  prices: { at: string; level: PriceLevel; priceCentsKwh: number }[]
   reservations: AgendaReservation[]
   sessions: AgendaSession[]
 }
