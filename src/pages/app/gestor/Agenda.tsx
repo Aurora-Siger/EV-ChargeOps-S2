@@ -23,8 +23,6 @@ const MONTHS_SHORT = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 's
 const CHARGER_COLORS = ['#e8185a', '#34d399', '#60a5fa', '#fbbf24', '#a78bfa', '#f472b6']
 
 type View = 'week' | 'day'
-/** O que a grade mostra: agendamentos, sessões realizadas (SEMS) ou os dois. */
-type Show = 'all' | 'res' | 'ses'
 type Ymd = { year: number; month: number; day: number }
 
 const ymdOf = (d: Date): Ymd => {
@@ -187,6 +185,12 @@ function Detail({
                 ? `${fmtTime(real.startedAt)} – ${real.endedAt ? fmtTime(real.endedAt) : 'agora'} · ${fmtKwh(real.energyKwh)}`
                 : 'nenhuma sessão na janela'}
             </dd>
+            {real && real.idleMin > 0 && (
+              <>
+                <dt>Ociosidade</dt>
+                <dd>{fmtMinutes(real.idleMin)} plugado depois da carga</dd>
+              </>
+            )}
           </>
         )}
         {r.occupiedFromAt && (
@@ -263,7 +267,7 @@ function SessionDetail({
   return (
     <Modal title="Sessão realizada" onClose={onClose}>
       <div className="ag-detail-head">
-        <span className="ag-dot" style={{ background: 'var(--green)' }} />
+        <span className="ag-dot" style={{ background: 'var(--text3)' }} />
         <div>
           <div className="ag-detail-who">{s.userName ?? 'Sem morador atribuído'}</div>
           <div className="ag-detail-sub">{s.unitLabel ?? 'sem unidade'} · {chargerName}</div>
@@ -314,9 +318,7 @@ function SessionDetail({
 export default function Agenda() {
   const [view, setView] = useState<View>(() => (typeof window !== 'undefined' && window.innerWidth < 700 ? 'day' : 'week'))
   const [anchor, setAnchor] = useState<Ymd>(() => ymdOf(new Date()))
-  const [withCancelled, setWithCancelled] = useState(false)
   const [hidden, setHidden] = useState<Set<string>>(new Set())
-  const [show, setShow] = useState<Show>('all')
   const [openId, setOpenId] = useState<string | null>(null)
   const [openSes, setOpenSes] = useState<string | null>(null)
   const [now, setNow] = useState(() => new Date())
@@ -337,7 +339,7 @@ export default function Agenda() {
   const to = dayStart(firstDay, nDays)
 
   const { data, error, loading, reload } = useApi<AgendaData>(
-    `/api/admin/reservations?from=${from.toISOString()}&to=${to.toISOString()}${withCancelled ? '&cancelled=1' : ''}`,
+    `/api/admin/reservations?from=${from.toISOString()}&to=${to.toISOString()}`,
     { pollMs: 60_000 },
   )
 
@@ -356,7 +358,6 @@ export default function Agenda() {
     for (const p of data?.prices ?? []) m.set(new Date(p.at).getTime(), p.level)
     return m
   }, [data])
-  const [showPrices, setShowPrices] = useState(true)
 
   const realOf = useMemo(() => matchSessions(data?.reservations ?? [], data?.sessions ?? [], now), [data, now])
   // sessão → reserva que ela atendeu (as que não atenderam nenhuma são avulsas)
@@ -375,7 +376,7 @@ export default function Agenda() {
       days.map((d0) => {
         const d1 = new Date(d0.getTime() + DAY_MS)
         const items: Item[] = []
-        for (const r of show === 'ses' ? [] : reservations) {
+        for (const r of reservations) {
           const occ = new Date(r.occupiedFromAt ?? r.startsAt!)
           const s = new Date(r.startsAt!)
           const e = new Date(r.endsAt!)
@@ -394,7 +395,9 @@ export default function Agenda() {
             contEnd: e > d1,
           })
         }
-        for (const s of show === 'res' ? [] : sessions) {
+        // sessão que atendeu um agendamento aparece dentro do bloco dele; só a avulsa ganha bloco próprio
+        for (const s of sessions) {
+          if (bookingOf.has(s.id)) continue
           const a0 = new Date(s.startedAt)
           const b0 = s.endedAt ? new Date(s.endedAt) : now
           if (a0 >= d1 || b0 <= d0) continue
@@ -410,7 +413,7 @@ export default function Agenda() {
         }
         return layout(items)
       }),
-    [days, reservations, sessions, now, show],
+    [days, reservations, sessions, now, bookingOf],
   )
 
   // abre a grade um pouco antes da hora atual (de madrugada, a partir de 0h), não sempre à meia-noite
@@ -451,7 +454,7 @@ export default function Agenda() {
     <div className="c ag">
       <div className="ag-toolbar">
         <div className="ag-nav">
-          <button className="btn btn-ghost btn-sm" onClick={() => setAnchor(ymdOf(new Date()))}>
+          <button className="btn btn-ghost ag-today" onClick={() => setAnchor(ymdOf(new Date()))}>
             Hoje
           </button>
           <button className="ag-arrow" onClick={() => step(-1)} aria-label="Anterior">
@@ -462,74 +465,37 @@ export default function Agenda() {
           </button>
           <span className="ag-range">{rangeLabel(view, days)}</span>
         </div>
-        <div className="ag-nav">
-          <label className="check-lbl">
-            <input
-              type="checkbox"
-              checked={withCancelled}
-              disabled={show === 'ses'}
-              onChange={(e) => setWithCancelled(e.target.checked)}
-            />{' '}
-            canceladas
-          </label>
-          <label className="check-lbl">
-            <input type="checkbox" checked={showPrices} onChange={(e) => setShowPrices(e.target.checked)} /> preço
-          </label>
-          <span className="seg">
-            <button className={show === 'all' ? 'on' : ''} onClick={() => setShow('all')}>
-              tudo
-            </button>
-            <button className={show === 'res' ? 'on' : ''} onClick={() => setShow('res')}>
-              agendados
-            </button>
-            <button className={show === 'ses' ? 'on' : ''} onClick={() => setShow('ses')}>
-              realizadas
-            </button>
-          </span>
-          <span className="seg">
-            <button className={view === 'day' ? 'on' : ''} onClick={() => setView('day')}>
-              dia
-            </button>
-            <button className={view === 'week' ? 'on' : ''} onClick={() => setView('week')}>
-              semana
-            </button>
-          </span>
-        </div>
+        <span className="seg ag-seg">
+          <button className={view === 'day' ? 'on' : ''} onClick={() => setView('day')}>
+            Dia
+          </button>
+          <button className={view === 'week' ? 'on' : ''} onClick={() => setView('week')}>
+            Semana
+          </button>
+        </span>
       </div>
 
       <div className="ag-summary">
-        {show !== 'ses' && (
-          <>
-            <span>
-              <b>{active.length}</b> {active.length === 1 ? 'agendamento' : 'agendamentos'}
-            </span>
-            <span>
-              <b>{fmtKwh(kwh)}</b> previstos
-            </span>
-            <span>
-              <b>{fmtBRL(cents)}</b> estimados
-            </span>
-            {finished.length > 0 && (
-              <span className="ag-sum-done">
-                <b>
-                  {done}/{finished.length}
-                </b>{' '}
-                realizadas
-              </span>
-            )}
-            {finished.length - done > 0 && (
-              <span className="ag-sum-miss">
-                <b>{finished.length - done}</b> sem recarga
-              </span>
-            )}
-          </>
-        )}
-        {show !== 'res' && (
-          <span className="ag-sum-done">
-            <b>{sessions.length}</b> {sessions.length === 1 ? 'sessão' : 'sessões'} · <b>{fmtKwh(realKwh)}</b> carregados
-            {walkIns > 0 && ` · ${walkIns} ${walkIns === 1 ? 'avulsa' : 'avulsas'}`}
+        <span>
+          <b>{active.length}</b> {active.length === 1 ? 'agendamento' : 'agendamentos'} · <b>{fmtKwh(kwh)}</b> ·{' '}
+          <b>{fmtBRL(cents)}</b> estimados
+        </span>
+        {finished.length > 0 && (
+          <span>
+            <b>
+              {done} de {finished.length}
+            </b>{' '}
+            realizados
           </span>
         )}
+        {walkIns > 0 && (
+          <span>
+            <b>{walkIns}</b> {walkIns === 1 ? 'recarga avulsa' : 'recargas avulsas'}
+          </span>
+        )}
+        <span>
+          <b>{fmtKwh(realKwh)}</b> carregados
+        </span>
       </div>
 
       {data && data.chargers.length > 1 && (
@@ -581,8 +547,7 @@ export default function Agenda() {
             </div>
             {days.map((d0, i) => (
               <div key={d0.toISOString()} className={`ag-col ${isToday(d0) ? 'today' : ''}`}>
-                {showPrices &&
-                  data?.prices
+                {data?.prices
                     .filter((p) => {
                       const t = new Date(p.at).getTime()
                       return t >= d0.getTime() && t < d0.getTime() + DAY_MS
@@ -660,7 +625,15 @@ export default function Agenda() {
                             {view === 'week' ? b.r.userName.split(' ')[0] : b.r.userName}
                           </span>
                         )}
-                        {h >= 58 && b.r.vehiclePlate && <span className="p">{b.r.vehiclePlate}</span>}
+                        {h >= 58 && (
+                          <span className="p">
+                            {realOf.get(b.r.id)
+                              ? `${fmtKwh(realOf.get(b.r.id)!.energyKwh)} carregados`
+                              : b.r.energyKwh !== null
+                                ? `${fmtKwh(b.r.energyKwh)} previstos`
+                                : ''}
+                          </span>
+                        )}
                       </span>
                     </button>
                   )
@@ -673,7 +646,7 @@ export default function Agenda() {
       </div>
 
       <div className="heat-legend">
-        {showPrices && (data?.prices.length ?? 0) > 0 && (
+        {(data?.prices.length ?? 0) > 0 && (
           <>
             <span>
               <span className="sw ag-sw-cheap" />
@@ -685,34 +658,21 @@ export default function Agenda() {
             </span>
             <span>
               <span className="sw ag-sw-peak" />
-              hora de pico
+              pico
             </span>
           </>
         )}
         <span>
           <span className="sw" style={{ background: 'var(--pink)' }} />
-          agendamento (janela de carga)
+          agendamento
         </span>
         <span>
-          <span className="sw ag-sw-lead" />
-          carro plugado esperando a carga
-        </span>
-        <span>
-          <span className="sw" style={{ background: 'var(--green)' }} />
-          sessão realizada (SEMS)
-        </span>
-        <span>
-          <span className="ag-ok">{I.check}</span>
-          agendamento cumprido
-        </span>
-        <span>
-          <span className="ag-miss">!</span>
-          não realizada (passou sem recarga)
+          <span className="sw" style={{ background: 'var(--bg4)', border: '1px solid var(--text3)' }} />
+          recarga sem agendamento
         </span>
       </div>
       <div className="hint-line">
-        Toque num bloco para ver os detalhes (e cancelar, se for um agendamento futuro). Na semana, toque no dia para
-        abrir só ele.
+        Toque num agendamento para ver a recarga real e os detalhes. Na semana, toque no dia para abrir só ele.
       </div>
 
       {open && (

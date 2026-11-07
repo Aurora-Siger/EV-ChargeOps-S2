@@ -7913,3 +7913,134 @@ img {
   color: var(--pink-soft);
   font-variant-numeric: tabular-nums;
 }
+
+/* agenda do gestor: controles em tamanho de toque */
+.ag .ag-today {
+  padding: 8px 16px;
+  font-size: 13.5px;
+}
+
+.ag .ag-arrow {
+  width: 36px;
+  height: 36px;
+}
+
+.ag .ag-arrow svg {
+  width: 16px;
+  height: 16px;
+}
+
+.ag-seg button {
+  padding: 8px 16px;
+  font-size: 13px;
+}
+
+.ag .ag-summary {
+  font-size: 13px;
+  gap: 6px 16px;
+}
+
+/* gestor > operação: lista de sessões */
+.ses-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.ses-head .btn {
+  padding: 8px 14px;
+  font-size: 13px;
+}
+
+.ses-filter {
+  margin-bottom: 6px;
+}
+
+.ses-filter button {
+  padding: 7px 14px;
+  font-size: 13px;
+}
+
+.ses-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 13px 0;
+  border-top: 1px solid var(--bd);
+}
+
+.ses-list .ses-row:first-child {
+  border-top: none;
+}
+
+.ses-when {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.ses-when b {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+.ses-when span {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  font-size: 12.5px;
+  color: var(--text3);
+  font-variant-numeric: tabular-nums;
+}
+
+.ses-level {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.ses-level i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--amber);
+}
+
+.ses-level.cheap i {
+  background: var(--green);
+}
+
+.ses-level.peak i {
+  background: var(--red);
+}
+
+.ses-who {
+  flex-shrink: 0;
+  max-width: 48%;
+  padding: 8px 10px;
+  border-radius: var(--r-sm);
+  border: 1px solid var(--bd2);
+  background: var(--bg3);
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+}
+
+@media (max-width: 520px) {
+  .ses-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+
+  .ses-who {
+    max-width: none;
+  }
+}
