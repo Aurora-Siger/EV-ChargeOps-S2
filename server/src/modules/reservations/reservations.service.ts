@@ -8,7 +8,7 @@ import { isOccupied, semsService } from '../sems/sems.service.js'
 import { stationsService } from '../stations/stations.service.js'
 import { workspacesRepository } from '../workspaces/workspaces.repository.js'
 import { fitsOpening, parseOpeningHours } from './domain/opening.js'
-import { cheapestWindow, startSlots, windowCostCents, type HourPrice } from './domain/scheduling.js'
+import { cheapestWindow, hoursForBudget, startSlots, windowCostCents, type HourPrice } from './domain/scheduling.js'
 import { reservationsRepository } from './reservations.repository.js'
 
 const HOUR_MS = 3_600_000
@@ -31,9 +31,48 @@ type Charger = { id: string; maxPowerKw: string | number }
 const rateOf = (vehicle: Vehicle, charger: Charger) => Math.min(Number(vehicle.maxChargeKw), Number(charger.maxPowerKw))
 const energyFor = (vehicle: Vehicle, fromSoc: number, targetSoc: number) =>
   Math.max(0, ((targetSoc - fromSoc) / 100) * Number(vehicle.capacityKwh))
-/** Duração da janela reservada: da bateria informada (só no "agora") ou da assumida até a meta. */
-const provisionalHours = (vehicle: Vehicle, charger: Charger, targetSoc: number, fromSoc = ASSUMED_START_SOC) =>
-  Math.max(0.5, energyFor(vehicle, fromSoc, targetSoc) / rateOf(vehicle, charger))
+
+/**
+ * As três formas de pedir uma carga: até uma % da bateria, uma quantidade de kWh ou um valor
+ * em reais. Quem chama manda uma delas; o Volt continua mandando só `targetSoc`.
+ */
+export type GoalReq = { targetSoc?: number; energyKwh?: number; budgetCents?: number }
+type Goal = { kind: 'SOC'; targetSoc: number } | { kind: 'KWH'; energyKwh: number } | { kind: 'BRL'; budgetCents: number }
+
+export function goalOf(req: GoalReq): Goal {
+  if (req.energyKwh !== undefined) return { kind: 'KWH', energyKwh: req.energyKwh }
+  if (req.budgetCents !== undefined) return { kind: 'BRL', budgetCents: req.budgetCents }
+  if (req.targetSoc !== undefined) return { kind: 'SOC', targetSoc: req.targetSoc }
+  throw new AppError('Diz quanto carregar: bateria, kWh ou valor', 400, 'VALIDATION')
+}
+
+/** Quanto ainda cabe na bateria a partir de `fromSoc`. */
+const roomKwh = (vehicle: Vehicle, fromSoc: number) => Math.max(0, ((100 - fromSoc) / 100) * Number(vehicle.capacityKwh))
+/** Onde a energia leva a bateria (a meta gravada nos pedidos por kWh e por valor). */
+const socAfter = (vehicle: Vehicle, fromSoc: number, kwh: number) =>
+  Math.min(100, Math.max(fromSoc + 1, Math.round(fromSoc + (kwh / Number(vehicle.capacityKwh)) * 100)))
+/** Energia do pedido, quando não depende do horário (no pedido por valor, depende: null). */
+const fixedEnergy = (goal: Goal, vehicle: Vehicle, fromSoc: number) =>
+  goal.kind === 'SOC' ? energyFor(vehicle, fromSoc, goal.targetSoc) : goal.kind === 'KWH' ? Math.min(goal.energyKwh, roomKwh(vehicle, fromSoc)) : null
+/** Maior janela que o pedido pode ocupar (no pedido por valor, até encher a bateria). */
+const spanHours = (goal: Goal, vehicle: Vehicle, charger: Charger, fromSoc: number) => {
+  const fixed = fixedEnergy(goal, vehicle, fromSoc)
+  return fixed !== null ? Math.max(0.5, fixed / rateOf(vehicle, charger)) : roomKwh(vehicle, fromSoc) / rateOf(vehicle, charger)
+}
+/** Duração da janela começando em `start`: fixa, ou o quanto o valor paga nessa curva. */
+const goalHours = (goal: Goal, vehicle: Vehicle, charger: Charger, fromSoc: number, curve: HourPrice[], start: number) =>
+  goal.kind === 'BRL'
+    ? hoursForBudget(curve, start, goal.budgetCents, rateOf(vehicle, charger), spanHours(goal, vehicle, charger, fromSoc))
+    : spanHours(goal, vehicle, charger, fromSoc)
+/** Energia da janela e a meta de bateria que ela representa. */
+const goalOutcome = (goal: Goal, vehicle: Vehicle, charger: Charger, fromSoc: number, hours: number) => {
+  const energy = fixedEnergy(goal, vehicle, fromSoc) ?? hours * rateOf(vehicle, charger)
+  return { energyKwh: energy, targetSoc: goal.kind === 'SOC' ? goal.targetSoc : socAfter(vehicle, fromSoc, energy) }
+}
+const checkGoal = (goal: Goal, vehicle: Vehicle, fromSoc: number) => {
+  if (goal.kind === 'SOC' && goal.targetSoc <= fromSoc) throw new AppError('A meta precisa ser maior que a bateria atual', 400, 'VALIDATION')
+  if (goal.kind !== 'SOC' && roomKwh(vehicle, fromSoc) < 0.1) throw new AppError('A bateria já está cheia', 400, 'VALIDATION')
+}
 
 /**
  * Onde o morador pode reservar pela tela de agendar: o carregador de um condomínio de que ele
@@ -116,12 +155,13 @@ export const reservationsService = {
    */
   async startSlots(
     userId: string,
-    req: { chargerId: string; vehicleId: string; targetSoc: number; from: Date; to: Date; startSoc?: number },
+    req: GoalReq & { chargerId: string; vehicleId: string; from: Date; to: Date; startSoc?: number },
   ) {
     const now = new Date()
+    const goal = goalOf(req)
     const [vehicle, place] = await Promise.all([residentsService.ownVehicle(userId, req.vehicleId), placeFor(userId, req.chargerId)])
     const fromSoc = req.startSoc ?? ASSUMED_START_SOC
-    const hours = provisionalHours(vehicle, place.charger, req.targetSoc, fromSoc)
+    const hours = spanHours(goal, vehicle, place.charger, fromSoc)
     const empty = {
       hours,
       assumedStartSoc: fromSoc,
@@ -144,7 +184,7 @@ export const reservationsService = {
       now,
       from: req.from,
       to,
-      hours,
+      hours: goal.kind === 'BRL' ? (s) => goalHours(goal, vehicle, place.charger, fromSoc, curve, s) : hours,
       rateKw: rateOf(vehicle, place.charger),
       busy,
       occupiedNow: live !== null && isOccupied(live),
@@ -166,8 +206,9 @@ export const reservationsService = {
    */
   async scheduleAt(
     userId: string,
-    req: { chargerId: string; vehicleId: string; targetSoc: number; startsAt: Date; startSoc?: number },
+    req: GoalReq & { chargerId: string; vehicleId: string; startsAt: Date; startSoc?: number },
   ) {
+    const goal = goalOf(req)
     const now = new Date()
     if (req.startsAt.getTime() < now.getTime() - START_TOLERANCE_MS) {
       throw new AppError('Esse horário já passou — escolhe outro', 400, 'VALIDATION')
@@ -179,10 +220,10 @@ export const reservationsService = {
       if (req.startsAt.getTime() > now.getTime()) {
         throw new AppError('A bateria atual só vale pra começar agora', 400, 'VALIDATION')
       }
-      if (req.targetSoc <= req.startSoc) throw new AppError('A meta precisa ser maior que a bateria atual', 400, 'VALIDATION')
     }
     const fromSoc = req.startSoc ?? ASSUMED_START_SOC
     const [vehicle, place] = await Promise.all([residentsService.ownVehicle(userId, req.vehicleId), placeFor(userId, req.chargerId)])
+    checkGoal(goal, vehicle, fromSoc)
     const live = place.sems ? await semsService.live() : null
     const occupiedNow = live !== null && isOccupied(live)
     // "Agora" chega com o instante da listagem, sempre no passado; hora cheia futura não entra aqui.
@@ -191,13 +232,16 @@ export const reservationsService = {
     }
 
     const rateKw = rateOf(vehicle, place.charger)
-    const hours = provisionalHours(vehicle, place.charger, req.targetSoc, fromSoc)
     const start = new Date(Math.max(req.startsAt.getTime(), now.getTime()))
+    const span = spanHours(goal, vehicle, place.charger, fromSoc)
+    const curve = await curveFor(place, now, Math.ceil((start.getTime() + span * HOUR_MS - now.getTime()) / HOUR_MS) + 1)
+    const hours = goalHours(goal, vehicle, place.charger, fromSoc, curve, start.getTime())
+    if (hours === null || hours <= 0) throw new AppError('Sem tarifa pra esse horário — escolhe outro', 400, 'VALIDATION')
     const end = new Date(start.getTime() + hours * HOUR_MS)
     if (!fitsOpening(place.opening, start, end)) {
       throw new AppError(`Fora do horário de funcionamento (${place.station.openingHours}) — escolhe outro`, 400, 'VALIDATION')
     }
-    const curve = await curveFor(place, now, Math.ceil((end.getTime() - now.getTime()) / HOUR_MS) + 1)
+    const outcome = goalOutcome(goal, vehicle, place.charger, fromSoc, hours)
 
     const created = await reservationsRepository.createIfFree({
       userId,
@@ -210,8 +254,10 @@ export const reservationsService = {
       // enquanto o carro de quem agendou já está fisicamente na tomada.
       occupiedFromAt: occupiedNow && start.getTime() > now.getTime() ? now : null,
       startSoc: req.startSoc ?? null,
-      targetSoc: req.targetSoc,
-      energyKwh: energyFor(vehicle, fromSoc, req.targetSoc).toFixed(3),
+      targetSoc: outcome.targetSoc,
+      goal: goal.kind,
+      budgetCents: goal.kind === 'BRL' ? goal.budgetCents : null,
+      energyKwh: outcome.energyKwh.toFixed(3),
       estimatedCostCents: windowCostCents(curve, start.getTime(), hours, rateKw),
       deadlineAt: end,
       status: 'SCHEDULED',
@@ -226,8 +272,9 @@ export const reservationsService = {
    * carga e o `detail` não), a conta parte de ASSUMED_START_SOC e a reserva nasce provisória
    * (`startSoc` nulo) — o `refineProvisional` ajusta o fim quando a bateria real aparecer.
    */
-  async plugInContext(userId: string, req: { chargerId: string; vehicleId: string; targetSoc: number; startSoc?: number }) {
+  async plugInContext(userId: string, req: GoalReq & { chargerId: string; vehicleId: string; startSoc?: number }) {
     const now = new Date()
+    const goal = goalOf(req)
     const [vehicle, { charger }, live] = await Promise.all([
       residentsService.ownVehicle(userId, req.vehicleId),
       placeFor(userId, req.chargerId),
@@ -242,8 +289,19 @@ export const reservationsService = {
     }
     const startSoc = live.soc ?? req.startSoc ?? null
     const fromSoc = startSoc ?? ASSUMED_START_SOC
-    if (req.targetSoc <= fromSoc) throw new AppError('A meta precisa ser maior que a bateria atual', 400, 'VALIDATION')
-    return { now, vehicle, charger, startSoc, fromSoc, rateKw: rateOf(vehicle, charger), energyKwh: energyFor(vehicle, fromSoc, req.targetSoc) }
+    checkGoal(goal, vehicle, fromSoc)
+    const rateKw = rateOf(vehicle, charger)
+    let energyKwh = fixedEnergy(goal, vehicle, fromSoc)
+    if (energyKwh === null) {
+      // por valor: começa agora, então a energia sai da curva a partir de agora
+      const span = spanHours(goal, vehicle, charger, fromSoc)
+      const { hours: curve } = await billingService.priceCurve(req.chargerId, now, Math.ceil(span) + 2)
+      const h = goalHours(goal, vehicle, charger, fromSoc, curve, now.getTime())
+      if (h === null || h <= 0) throw new AppError('Sem tarifa pra calcular esse valor agora', 400, 'VALIDATION')
+      energyKwh = h * rateKw
+    }
+    const { targetSoc } = goalOutcome(goal, vehicle, charger, fromSoc, energyKwh / rateKw)
+    return { now, goal, vehicle, charger, startSoc, fromSoc, rateKw, energyKwh, targetSoc }
   },
 
   /**
@@ -251,9 +309,15 @@ export const reservationsService = {
    * mostra quando fica pronto e quanto custa, sem prazo pra ajustar. `window` é null se a carga
    * bate com a reserva seguinte de outro morador.
    */
-  async plugInPreview(userId: string, req: { chargerId: string; vehicleId: string; targetSoc: number }) {
+  async plugInPreview(userId: string, req: GoalReq & { chargerId: string; vehicleId: string }) {
     const ctx = await reservationsService.plugInContext(userId, req)
-    return { soc: ctx.startSoc, assumedStartSoc: ctx.fromSoc, energyKwh: ctx.energyKwh, window: await asapWindow(req.chargerId, ctx) }
+    return {
+      soc: ctx.startSoc,
+      assumedStartSoc: ctx.fromSoc,
+      energyKwh: ctx.energyKwh,
+      targetSoc: ctx.targetSoc,
+      window: await asapWindow(req.chargerId, ctx),
+    }
   },
 
   /**
@@ -263,10 +327,10 @@ export const reservationsService = {
    */
   async scheduleNow(
     userId: string,
-    req: { chargerId: string; vehicleId: string; targetSoc: number; deadlineHours?: number; startSoc?: number },
+    req: GoalReq & { chargerId: string; vehicleId: string; deadlineHours?: number; startSoc?: number },
   ) {
     const ctx = await reservationsService.plugInContext(userId, req)
-    const { now, vehicle, startSoc, rateKw, energyKwh } = ctx
+    const { now, goal, vehicle, startSoc, rateKw, energyKwh, targetSoc } = ctx
     let win
     if (req.deadlineHours === undefined) {
       win = await asapWindow(req.chargerId, ctx)
@@ -278,7 +342,7 @@ export const reservationsService = {
         reservationsRepository.overlapping(req.chargerId, now, deadline),
       ])
       win = cheapestWindow({ curve, earliest: now, deadline, energyKwh, rateKw, busy })
-      if (!win) throw new AppError(`Não dá pra chegar a ${req.targetSoc}% a tempo — tenta uma meta menor ou mais prazo`, 400, 'VALIDATION')
+      if (!win) throw new AppError(`Não dá pra chegar a ${targetSoc}% a tempo — tenta uma meta menor ou mais prazo`, 400, 'VALIDATION')
     }
     const deadlineAt = req.deadlineHours === undefined ? win.end : new Date(now.getTime() + req.deadlineHours * HOUR_MS)
 
@@ -292,7 +356,9 @@ export const reservationsService = {
       // o carregador desde já — mesmo raciocínio do `scheduleAt` (ver comentário lá).
       occupiedFromAt: win.start.getTime() > now.getTime() ? now : null,
       startSoc,
-      targetSoc: req.targetSoc,
+      targetSoc,
+      goal: goal.kind,
+      budgetCents: goal.kind === 'BRL' ? goal.budgetCents : null,
       energyKwh: energyKwh.toFixed(3),
       estimatedCostCents: win.costCents,
       deadlineAt,
@@ -368,7 +434,7 @@ export const reservationsService = {
   async refineProvisional(userId: string, chargerId: string, soc: number, now: Date) {
     const r = await reservationsRepository.provisionalForUser(userId, chargerId, now, PROVISIONAL_LOOKAHEAD_MS)
     if (!r) return
-    if (!r.vehicleId || r.targetSoc <= soc) {
+    if (!r.vehicleId || (r.goal === 'SOC' ? r.targetSoc <= soc : soc >= 99)) {
       // Sem veículo (apagado depois) ou meta já atingida: libera o carregador.
       await reservationsRepository.expire(r.id)
       return
@@ -379,15 +445,30 @@ export const reservationsService = {
     ])
     if (!charger) return
     const rateKw = rateOf(vehicleRow, charger)
-    const energyKwh = energyFor(vehicleRow, soc, r.targetSoc)
-    const hours = energyKwh / rateKw
+    // kWh pedido continua o mesmo (até onde cabe); valor pedido rende o que a curva paga desde o início
+    const goal: Goal =
+      r.goal === 'KWH' ? { kind: 'KWH', energyKwh: Number(r.energyKwh ?? 0) }
+      : r.goal === 'BRL' && r.budgetCents !== null ? { kind: 'BRL', budgetCents: r.budgetCents }
+      : { kind: 'SOC', targetSoc: r.targetSoc }
     const start = new Date(Math.max(r.startsAt!.getTime(), now.getTime()))
+    const span = goal.kind === 'BRL' ? spanHours(goal, vehicleRow, charger, soc) : 0
+    const { hours: curve } = await billingService.priceCurve(
+      chargerId,
+      now,
+      Math.ceil((start.getTime() + Math.max(span, energyFor(vehicleRow, soc, 100) / rateKw) * HOUR_MS - now.getTime()) / HOUR_MS) + 1,
+    )
+    const energyKwh =
+      goal.kind === 'BRL'
+        ? (hoursForBudget(curve, start.getTime(), goal.budgetCents, rateKw, span) ?? 0) * rateKw
+        : (fixedEnergy(goal, vehicleRow, soc) ?? 0)
+    if (energyKwh <= 0) return
+    const hours = energyKwh / rateKw
     const end = new Date(start.getTime() + hours * HOUR_MS)
-    const { hours: curve } = await billingService.priceCurve(chargerId, now, Math.ceil((end.getTime() - now.getTime()) / HOUR_MS) + 1)
     await reservationsRepository.resolve(r.id, chargerId, {
       startsAt: start,
       endsAt: end,
       startSoc: soc,
+      targetSoc: goal.kind === 'SOC' ? goal.targetSoc : socAfter(vehicleRow, soc, energyKwh),
       energyKwh: energyKwh.toFixed(3),
       estimatedCostCents: windowCostCents(curve, start.getTime(), hours, rateKw),
       deadlineAt: end,

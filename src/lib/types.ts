@@ -229,6 +229,8 @@ export type PriceCurve = { basePriceCentsKwh: number; hours: HourPrice[] }
  * pluga de verdade. EXPIRED: passou do prazo sem plugar. SCHEDULED com `startSoc` nulo: reserva
  * por horário de início, com o fim estimado até o carro plugar e a bateria ser lida. */
 export type ReservationStatus = 'PENDING_PLUGIN' | 'SCHEDULED' | 'CANCELLED' | 'EXPIRED'
+/** Como a carga foi pedida: até uma % da bateria, uma quantidade de kWh ou um valor. */
+export type GoalKind = 'SOC' | 'KWH' | 'BRL'
 
 export type Reservation = {
   id: string
@@ -239,6 +241,8 @@ export type Reservation = {
   endsAt: string | null
   startSoc: number | null
   targetSoc: number
+  goal?: GoalKind
+  budgetCents?: number | null
   energyKwh: number | null
   estimatedCostCents: number | null
   deadlineAt: string
@@ -259,6 +263,8 @@ export type StartSlot = {
   now: boolean
   level: PriceLevel
   costCents: number | null
+  /** energia da janela (no pedido por valor, varia por horário) */
+  energyKwh: number
   free: boolean
 }
 /** `hours`: duração estimada de cada janela, carregando de `assumedStartSoc` até a meta.
@@ -283,6 +289,8 @@ export type PlugInPreview = {
   soc: number | null
   assumedStartSoc: number
   energyKwh: number
+  /** onde a carga leva a bateria */
+  targetSoc: number
   window: ChargeWindow | null
 }
 

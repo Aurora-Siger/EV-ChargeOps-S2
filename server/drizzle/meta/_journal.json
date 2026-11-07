@@ -120,6 +120,13 @@
       "when": 1791946954208,
       "tag": "0016_lancamentos_ciclo",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1794087465456,
+      "tag": "0017_agendar_por_energia_valor",
+      "breakpoints": true
     }
   ]
 }

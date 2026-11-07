@@ -1,13 +1,27 @@
 import { useMemo, useState } from 'react'
 import Volt from '../../components/Volt'
-import { TARGETS, TARGET_USE, availableTargets, rangeAt } from '../../lib/energyPricing'
+import {
+  GOAL_DEFAULT,
+  GOAL_KIND_LABEL,
+  GOAL_KINDS,
+  GOAL_OPTIONS,
+  TARGETS,
+  TARGET_USE,
+  availableTargets,
+  goalParams,
+  kmFor,
+  rangeAt,
+  roomKwh,
+  socAfter,
+  type ChargeGoal,
+} from '../../lib/energyPricing'
 import { fmtBRL, fmtDay, fmtKwh, fmtNum, fmtTime, fromLocal, LEVEL_LABEL, local, WEEKDAYS } from '../../lib/format'
 import { api } from '../../lib/http'
-import type { PlugInPreview, Reservation, StartSlot, StartSlots, Station, Vehicle } from '../../lib/types'
+import type { GoalKind, PlugInPreview, Reservation, StartSlot, StartSlots, Station, Vehicle } from '../../lib/types'
 import { useApi } from '../../lib/useApi'
 import { distanceKm, fmtDistance, placeholderGradient } from '../../lib/chargePoints'
 import { I } from './icons'
-import ReservationCard from './ReservationCard'
+import ReservationCard, { goalLabel } from './ReservationCard'
 import { Empty, ErrorBox } from './ui'
 import { useMe } from './me'
 import { useAction } from '../../lib/useAction'
@@ -125,6 +139,81 @@ function TargetChips({
   )
 }
 
+/**
+ * Quanto carregar, em três formas: autonomia (a meta de bateria em km), energia (kWh) ou valor
+ * (R$). `fromSoc` é a bateria de partida (a lida, ou a estimada) e `priceCentsKwh` o preço médio
+ * da janela já calculada, só pra traduzir o valor em km na etiqueta.
+ */
+function GoalPicker({
+  vehicle,
+  goal,
+  fromSoc,
+  socEnabled,
+  priceCentsKwh,
+  onPick,
+}: {
+  vehicle: Vehicle
+  goal: ChargeGoal
+  fromSoc: number
+  socEnabled: number[]
+  priceCentsKwh: number | null
+  onPick: (g: ChargeGoal) => void
+}) {
+  const room = roomKwh(vehicle, fromSoc)
+  const reach = (kwh: number) => {
+    const km = kmFor(vehicle, kwh)
+    return km !== null ? `+${km} km` : `+${Math.round((kwh / vehicle.capacityKwh) * 100)}%`
+  }
+  return (
+    <>
+      <div className="seg goal-seg" role="tablist" aria-label="Forma de pedir a carga">
+        {GOAL_KINDS.map((k: GoalKind) => (
+          <button
+            key={k}
+            role="tab"
+            aria-selected={goal.kind === k}
+            className={goal.kind === k ? 'on' : ''}
+            onClick={() => goal.kind !== k && onPick({ kind: k, value: GOAL_DEFAULT[k] })}
+          >
+            {GOAL_KIND_LABEL[k]}
+          </button>
+        ))}
+      </div>
+      {goal.kind === 'SOC' && (
+        <TargetChips vehicle={vehicle} active={goal.value} enabled={socEnabled} onPick={(t) => onPick({ kind: 'SOC', value: t })} />
+      )}
+      {goal.kind === 'KWH' && (
+        <div className="ask-targets" style={{ marginTop: 12, marginBottom: 0 }}>
+          {GOAL_OPTIONS.KWH.map((v) => (
+            <button
+              key={v}
+              className={`ask-target ${goal.value === v ? 'on' : ''}`}
+              disabled={v > room + 0.5}
+              onClick={() => onPick({ kind: 'KWH', value: v })}
+            >
+              <b>{v} kWh</b>
+              <span>{reach(v)}</span>
+            </button>
+          ))}
+        </div>
+      )}
+      {goal.kind === 'BRL' && (
+        <div className="ask-targets" style={{ marginTop: 12, marginBottom: 0 }}>
+          {GOAL_OPTIONS.BRL.map((v) => {
+            const kwh = priceCentsKwh ? Math.min(room, v / priceCentsKwh) : null
+            return (
+              <button key={v} className={`ask-target ${goal.value === v ? 'on' : ''}`} onClick={() => onPick({ kind: 'BRL', value: v })}>
+                <b>R$ {v / 100}</b>
+                <span>{kwh === null ? 'no máximo' : kwh >= room - 0.5 ? 'bateria cheia' : `~${reach(kwh).slice(1)}`}</span>
+              </button>
+            )
+          })}
+        </div>
+      )}
+    </>
+  )
+}
+
 /** "20% · ~56 km" — a bateria informada já traduzida em autonomia. */
 function socLabel(vehicle: Vehicle, soc: number) {
   const km = rangeAt(vehicle, soc)
@@ -157,7 +246,9 @@ export default function Agendar({ go }: { go: (t: Tab) => void }) {
   // "Já plugado" só existe com o carro na tomada do condomínio agora; sem isso, só agendar
   const mode: Mode = pluggedIn ? modePick : 'later'
   const [placePick, setPlacePick] = useState<string | null>(null)
-  const [target, setTarget] = useState(80)
+  // quanto carregar: autonomia (% em km), energia (kWh) ou valor (R$)
+  const [goal, setGoal] = useState<ChargeGoal>({ kind: 'SOC', value: 80 })
+  const target = goal.kind === 'SOC' ? goal.value : 80
   // null = ainda não escolheu: abre no primeiro dia com horário livre
   const [dayPick, setDayPick] = useState<number | null>(null)
   const [slotPick, setSlotPick] = useState<string | null>(null)
@@ -175,8 +266,10 @@ export default function Agendar({ go }: { go: (t: Tab) => void }) {
   const liveSoc = telemetrySoc
   const targetsNow = liveSoc !== null ? availableTargets(liveSoc) : TARGETS
   const activeTargetNow = targetsNow.includes(target) ? target : (targetsNow[0] ?? 100)
+  const goalNow: ChargeGoal = goal.kind === 'SOC' ? { kind: 'SOC', value: activeTargetNow } : goal
   // horário futuro também não pergunta: até lá a bateria muda
-  const activeTargetLater = target
+  const goalLater = goal
+  const goalQuery = (g: ChargeGoal) => Object.fromEntries(Object.entries(goalParams(g)).map(([k, v]) => [k, String(v)]))
 
   // Onde dá pra reservar: o condomínio do morador e os parceiros da rede (mais perto primeiro).
   // "Own" usa o mesmo sinal do "já plugado" acima (o carregador de `me.charger`) — não
@@ -205,7 +298,7 @@ export default function Agendar({ go }: { go: (t: Tab) => void }) {
       ? `/api/reservations/start-slots?${new URLSearchParams({
           chargerId: placeChargerId,
           vehicleId: vehicle.id,
-          targetSoc: String(activeTargetLater),
+          ...goalQuery(goalLater),
           from: days[0].start.toISOString(),
           to: days[DAYS_AHEAD - 1].end.toISOString(),
         })}`
@@ -232,6 +325,10 @@ export default function Agendar({ go }: { go: (t: Tab) => void }) {
   const sliderIndex = activeSlot ? Math.max(freeDaySlots.indexOf(activeSlot), 0) : 0
   const sliderPct = freeDaySlots.length > 1 ? (sliderIndex / (freeDaySlots.length - 1)) * 100 : 50
   // horários mais baratos que o escolhido, pra trocar com um toque na tela de confirmação
+  // preço médio por kWh da janela escolhida, pra traduzir o valor em autonomia nas opções
+  const laterPriceKwh = activeSlot?.costCents && activeSlot.energyKwh > 0 ? activeSlot.costCents / activeSlot.energyKwh : null
+  // bateria onde a janela escolhida chega (partindo dos 20% estimados)
+  const laterSoc = goalLater.kind === 'SOC' ? goalLater.value : activeSlot ? socAfter(vehicle ?? me.vehicles[0], slotsData?.assumedStartSoc ?? 20, activeSlot.energyKwh) : 80
   const cheaperAlternatives = activeSlot?.costCents
     ? daySlots
         .filter((s) => s.free && s !== activeSlot && s.costCents !== null && s.costCents < activeSlot.costCents!)
@@ -241,11 +338,12 @@ export default function Agendar({ go }: { go: (t: Tab) => void }) {
 
   const optionsPath =
     mode === 'now' && pluggedIn && charger && vehicle && (liveSoc === null || liveSoc < 99)
-      ? `/api/reservations/now-preview?${new URLSearchParams({ chargerId: charger.id, vehicleId: vehicle.id, targetSoc: String(activeTargetNow) })}`
+      ? `/api/reservations/now-preview?${new URLSearchParams({ chargerId: charger.id, vehicleId: vehicle.id, ...goalQuery(goalNow) })}`
       : null
   // já plugado não espera hora barata: começa agora, a prévia só mostra quando fica pronto e o custo
   const nowPreview = useApi<PlugInPreview>(optionsPath, { pollMs: 60_000 })
   const preview = nowPreview.loading ? null : nowPreview.data
+  const nowPriceKwh = preview?.window && preview.energyKwh > 0 ? preview.window.costCents / preview.energyKwh : null
 
   if (!charger) {
     return (
@@ -280,12 +378,12 @@ export default function Agendar({ go }: { go: (t: Tab) => void }) {
           <h2>{scheduled ? 'Reserva confirmada!' : 'Combinado!'}</h2>
           {scheduled && done.startSoc === null && done.stationKind === 'PARCEIRO' ? (
             <p>
-              {fmtDay(done.startsAt!)} · {fmtTime(done.startsAt!)} às ~{fmtTime(done.endsAt!)}, até {done.targetSoc}%
+              {fmtDay(done.startsAt!)} · {fmtTime(done.startsAt!)} às ~{fmtTime(done.endsAt!)}, {goalLabel(done)}
               {done.estimatedCostCents !== null && <> — estimado até {fmtBRL(done.estimatedCostCents)}</>}.
             </p>
           ) : scheduled && done.startSoc === null ? (
             <p>
-              {fmtDay(done.startsAt!)} · {fmtTime(done.startsAt!)} às ~{fmtTime(done.endsAt!)}, até {done.targetSoc}%. Quando o{' '}
+              {fmtDay(done.startsAt!)} · {fmtTime(done.startsAt!)} às ~{fmtTime(done.endsAt!)}, {goalLabel(done)}. Quando o{' '}
               {vehicle.model} plugar, a gente lê a bateria e ajusta o fim da reserva
               {done.estimatedCostCents !== null && <> — estimado até {fmtBRL(done.estimatedCostCents)}</>}.
             </p>
@@ -339,7 +437,7 @@ export default function Agendar({ go }: { go: (t: Tab) => void }) {
         json: {
           chargerId: charger.id,
           vehicleId: vehicle.id,
-          targetSoc: activeTargetNow,
+          ...goalParams(goalNow),
         },
       })
       setDone({ ...r, ...placeOf(home) })
@@ -354,7 +452,7 @@ export default function Agendar({ go }: { go: (t: Tab) => void }) {
         json: {
           chargerId: placeChargerId,
           vehicleId: vehicle.id,
-          targetSoc: activeTargetLater,
+          ...goalParams(goalLater),
           startsAt: slot.startsAt,
         },
       })
@@ -443,14 +541,21 @@ export default function Agendar({ go }: { go: (t: Tab) => void }) {
                 `Seu carro · ${vehicle.model}`
               )}
             </div>
-            <BatteryGauge vehicle={vehicle} soc={liveSoc} target={activeTargetNow} go={go} />
+            <BatteryGauge vehicle={vehicle} soc={liveSoc} target={preview?.targetSoc ?? activeTargetNow} go={go} />
             {liveSoc !== null && (
               <div className="live-soc">
                 <span className="dot" /> bateria agora <b>{socLabel(vehicle, liveSoc)}</b>
               </div>
             )}
-            <div className="soc-now-meta">Quanto de autonomia você quer</div>
-            <TargetChips vehicle={vehicle} active={activeTargetNow} enabled={targetsNow} onPick={setTarget} />
+            <div className="soc-now-meta">Quanto carregar</div>
+            <GoalPicker
+              vehicle={vehicle}
+              goal={goalNow}
+              fromSoc={liveSoc ?? 20}
+              socEnabled={targetsNow}
+              priceCentsKwh={nowPriceKwh}
+              onPick={setGoal}
+            />
           </div>
 
           <div className="c">
@@ -462,6 +567,13 @@ export default function Agendar({ go }: { go: (t: Tab) => void }) {
             )}
             {preview?.window && (
               <div className="confirm-summary">
+                <div className="row">
+                  <span>Carga</span>
+                  <b>
+                    {fmtKwh(preview.energyKwh)}
+                    {kmFor(vehicle, preview.energyKwh) !== null && ` · +${kmFor(vehicle, preview.energyKwh)} km`}
+                  </b>
+                </div>
                 <div className="row">
                   <span>Pronto</span>
                   <b>
@@ -630,21 +742,27 @@ export default function Agendar({ go }: { go: (t: Tab) => void }) {
                   `Seu carro · ${vehicle.model}`
                 )}
               </div>
-              <BatteryGauge vehicle={vehicle} soc={null} target={activeTargetLater} go={go} />
-              <div className="soc-now-meta">Quanto de autonomia você quer</div>
-              <TargetChips
+              <BatteryGauge vehicle={vehicle} soc={null} target={laterSoc} go={go} />
+              <div className="soc-now-meta">Quanto carregar</div>
+              <GoalPicker
                 vehicle={vehicle}
-                active={activeTargetLater}
-                enabled={TARGETS}
-                onPick={(t) => {
-                  // mantém o horário do passo 1 (o passo 3 avisa se ele não couber com a nova meta)
-                  setTarget(t)
-                  setWizardStep(3)
+                goal={goalLater}
+                fromSoc={slotsData?.assumedStartSoc ?? 20}
+                socEnabled={TARGETS}
+                priceCentsKwh={laterPriceKwh}
+                onPick={(g) => {
+                  // trocar de forma só mostra as opções; tocar num valor avança.
+                  // Mantém o horário do passo 1 (o passo 3 avisa se ele não couber com a nova meta)
+                  setGoal(g)
+                  if (g.kind === goalLater.kind) setWizardStep(3)
                 }}
               />
               <div className="wiz-nav">
                 <button className="btn btn-ghost" onClick={() => setWizardStep(1)}>
                   Voltar
+                </button>
+                <button className="btn btn-primary" onClick={() => setWizardStep(3)}>
+                  Continuar
                 </button>
               </div>
             </div>
@@ -676,14 +794,24 @@ export default function Agendar({ go }: { go: (t: Tab) => void }) {
                         {fmtTime(activeSlot.endsAt)}
                       </b>
                     </div>
-                    <div className="row">
-                      <span>Bateria</span>
-                      <b>
-                        {slotsData.socDeclared
-                          ? `${slotsData.assumedStartSoc}% → ${socLabel(vehicle, activeTargetLater)}`
-                          : `meta ${socLabel(vehicle, activeTargetLater)}`}
-                      </b>
-                    </div>
+                    {goalLater.kind === 'SOC' ? (
+                      <div className="row">
+                        <span>Bateria</span>
+                        <b>
+                          {slotsData.socDeclared
+                            ? `${slotsData.assumedStartSoc}% → ${socLabel(vehicle, goalLater.value)}`
+                            : `meta ${socLabel(vehicle, goalLater.value)}`}
+                        </b>
+                      </div>
+                    ) : (
+                      <div className="row">
+                        <span>{goalLater.kind === 'BRL' ? `Até ${fmtBRL(goalLater.value)}` : 'Carga'}</span>
+                        <b>
+                          {fmtKwh(activeSlot.energyKwh)}
+                          {kmFor(vehicle, activeSlot.energyKwh) !== null && ` · +${kmFor(vehicle, activeSlot.energyKwh)} km`}
+                        </b>
+                      </div>
+                    )}
                     {activeSlot.costCents !== null && (
                       <div className="row">
                         <span>Estimado</span>

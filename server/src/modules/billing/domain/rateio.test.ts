@@ -6,10 +6,13 @@ const cfg = { tariffBaseCentsKwh: 52, idleCentsPerMinute: 10, idleGraceMinutes: 
 describe('priceSession', () => {
   it('aplica o mult na energia e na ociosidade além da carência', () => {
     const p = priceSession({ ...cfg, energyKwh: 10, idleMin: 25, mult: 1.2 })
-    expect(p).toEqual({ energyCostCents: 520, idleChargeableMin: 10, chargedCents: Math.round(1.2 * (520 + 100)) })
+    expect(p).toEqual({ energyCostCents: 520, idleChargeableMin: 10, idleCents: 120, chargedCents: Math.round(1.2 * (520 + 100)) })
   })
   it('ociosidade dentro da carência é grátis', () => {
     expect(priceSession({ ...cfg, energyKwh: 1, idleMin: 15, mult: 1 }).idleChargeableMin).toBe(0)
+    // teto da ociosidade: 300 min cobráveis × 10 = 3000, para em 1500; a energia não entra no teto
+    const capped = priceSession({ ...cfg, energyKwh: 10, idleMin: 315, mult: 1, idleMaxCentsPerSession: 1500 })
+    expect(capped).toMatchObject({ idleCents: 1500, chargedCents: 520 + 1500 })
   })
 })
 
