@@ -15,6 +15,7 @@ export type Resolution = {
   startsAt: Date
   endsAt: Date
   startSoc: number
+  targetSoc?: number
   energyKwh: string
   estimatedCostCents: number | null
   deadlineAt?: Date

@@ -1,6 +1,6 @@
-import { useState } from 'react'
+import { Fragment, useState } from 'react'
 import Volt from '../../components/Volt'
-import { currentPeriod, fmtBRL, fmtDay, fmtKwh, fmtMinutes, fmtNum, fmtTime, LEVEL_LABEL } from '../../lib/format'
+import { currentPeriod, fmtBRL, fmtDay, fmtKwh, fmtMinutes, fmtMult, fmtNum, fmtTime, LEVEL_LABEL } from '../../lib/format'
 import type { MyInvoice, PriceCurve, Reservation, Session, Station } from '../../lib/types'
 import { useApi } from '../../lib/useApi'
 import { I } from './icons'
@@ -13,21 +13,59 @@ const LEVEL_STYLE = { color: 'var(--green)', borderColor: 'var(--green-b)', back
 
 type LiveSession = NonNullable<NonNullable<Station['live']>['session']>
 
-/** Tempo, energia e potência da sessão em andamento, em três colunas iguais. */
-function SessionStats({ session }: { session: LiveSession }) {
+/**
+ * Tempo, energia, quanto já deu em reais e a potência da sessão em andamento. O valor usa a
+ * tarifa desta hora: é uma prévia, o preço final sai no fechamento da sessão.
+ */
+function SessionStats({ session, priceCentsKwh }: { session: LiveSession; priceCentsKwh: number | null }) {
   const cells = [
     { v: fmtMinutes(session.minutes), k: 'tempo' },
     { v: fmtNum(session.kwh, 2), k: 'kWh' },
+    ...(priceCentsKwh !== null ? [{ v: fmtBRL(session.kwh * priceCentsKwh), k: 'até agora', money: true }] : []),
     ...(session.powerKw !== null ? [{ v: fmtNum(session.powerKw, 2), k: 'kW agora' }] : []),
   ]
   return (
     <div className="status-live-stats">
       {cells.map((c) => (
         <div key={c.k}>
-          <span className="v">{c.v}</span>
+          <span className={'money' in c ? 'v money' : 'v'}>{c.v}</span>
           <span className="k">{c.k}</span>
         </div>
       ))}
+    </div>
+  )
+}
+
+/**
+ * Recibo de uma recarga: quando, quanto entrou, a tarifa e o multiplicador da hora, e a
+ * ociosidade (minutos plugado depois da carga, se cobrados). Abre tocando na recarga.
+ */
+function Receipt({ s }: { s: Session }) {
+  const energyCharged = s.mult !== null && s.energyCostCents !== null ? Math.round(s.mult * s.energyCostCents) : null
+  const idleCharged = s.chargedCents !== null && energyCharged !== null ? Math.max(0, s.chargedCents - energyCharged) : 0
+  const rows: [string, string][] = [
+    ['Início', `${fmtDay(s.startedAt)} · ${fmtTime(s.startedAt)}`],
+    ...(s.endedAt ? [['Fim', `${fmtTime(s.endedAt)}${s.durationMin !== null ? ` · ${fmtMinutes(s.durationMin)}` : ''}`] as [string, string]] : []),
+    ['Energia', fmtKwh(s.energyKwh, 2)],
+    ...(s.tariffBaseCentsKwh !== null && s.mult !== null
+      ? [['Tarifa', `${fmtBRL(s.tariffBaseCentsKwh)}/kWh · ${fmtMult(s.mult)}`] as [string, string]]
+      : []),
+    ...(energyCharged !== null ? [['Energia cobrada', fmtBRL(energyCharged)] as [string, string]] : []),
+    ...(s.idleMin > 0 ? [['Ociosidade', `${fmtMinutes(s.idleMin)}${idleCharged > 0 ? ` · ${fmtBRL(idleCharged)}` : ' · sem custo'}`] as [string, string]] : []),
+  ]
+  return (
+    <div className="receipt">
+      {rows.map(([k, v]) => (
+        <div className="row" key={k}>
+          <span>{k}</span>
+          <b>{v}</b>
+        </div>
+      ))}
+      <div className="row total">
+        <span>Total</span>
+        <b>{s.chargedCents !== null ? fmtBRL(s.chargedCents) : 'em cálculo'}</b>
+      </div>
+      <div className="receipt-note">entra no rateio do mês da sua unidade</div>
     </div>
   )
 }
@@ -36,6 +74,7 @@ export default function Home({ go }: { go: (t: Tab) => void }) {
   const { me } = useMe()
   const chargerId = me.charger?.id
   const [nowMs] = useState(() => Date.now())
+  const [openReceipt, setOpenReceipt] = useState<string | null>(null)
   const stations = useApi<Station[]>('/api/stations', { pollMs: 60_000 })
   const invoice = useApi<MyInvoice>(`/api/me/invoice?period=${currentPeriod()}`)
   const recent = useApi<Session[]>('/api/me/sessions?limit=3')
@@ -113,7 +152,7 @@ export default function Home({ go }: { go: (t: Tab) => void }) {
                   <span className="status-live-num">{fmtNum(session.km)} km</span>
                   <span className="status-live-label">autonomia ganha · carregando agora</span>
                 </div>
-                <SessionStats session={session} />
+                <SessionStats session={session} priceCentsKwh={now?.priceCentsKwh ?? null} />
               </div>
             )}
 
@@ -129,7 +168,7 @@ export default function Home({ go }: { go: (t: Tab) => void }) {
                 <div className="status-live-bar">
                   <div className="fill" style={{ width: `${home.soc}%` }} />
                 </div>
-                {session && <SessionStats session={session} />}
+                {session && <SessionStats session={session} priceCentsKwh={now?.priceCentsKwh ?? null} />}
               </div>
             )}
 
@@ -208,7 +247,12 @@ export default function Home({ go }: { go: (t: Tab) => void }) {
               </Empty>
             )}
             {recent.data?.map((r) => (
-              <div className="act" key={r.id}>
+              <Fragment key={r.id}>
+              <button
+                className={`act act-btn ${openReceipt === r.id ? 'open' : ''}`}
+                aria-expanded={openReceipt === r.id}
+                onClick={() => setOpenReceipt(openReceipt === r.id ? null : r.id)}
+              >
                 <div className="ic" style={r.level === 'cheap' ? LEVEL_STYLE : undefined}>
                   {I.bolt}
                 </div>
@@ -219,7 +263,9 @@ export default function Home({ go }: { go: (t: Tab) => void }) {
                   </div>
                 </div>
                 <div className="val">{r.chargedCents !== null ? fmtBRL(r.chargedCents) : '—'}</div>
-              </div>
+              </button>
+              {openReceipt === r.id && <Receipt s={r} />}
+              </Fragment>
             ))}
           </div>
         </div>

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import Volt from '../../../components/Volt'
 import { currentPeriod, fmtBRL, fmtDueDate, fmtKwh, monthName, STATE_LABEL, STATE_TAG } from '../../../lib/format'
+import { csvMoney, downloadCsv } from '../../../lib/csv'
 import { api } from '../../../lib/http'
 import type { Cycle, CycleLine } from '../../../lib/types'
 import { useApi } from '../../../lib/useApi'
@@ -40,6 +41,28 @@ export default function Rateio({ period, canWrite, goCobrancas }: { period: stri
       reload()
     })
   }
+
+  // rateio do mês pronto pra administradora: uma linha por pessoa, valores em reais
+  const exportCsv = () =>
+    downloadCsv(
+      `rateio-${period}.csv`,
+      ['Unidade', 'Nome', 'E-mail', 'Tipo', 'Recargas', 'Energia (kWh)', 'Custo da energia (R$)', 'Energia cobrada (R$)', 'Parcela fixa (R$)', 'Crédito (R$)', 'Ajustes (R$)', 'Total (R$)', 'Situação'],
+      c.lines.map((l) => [
+        l.unitLabel,
+        l.name,
+        l.email,
+        l.kind === 'CONVIDADO' ? 'Convidado' : 'Morador',
+        l.sessionsCount,
+        Number(l.energyKwh.toFixed(3)),
+        csvMoney(l.energyCostCents),
+        csvMoney(l.chargedCents),
+        csvMoney(l.fixedShareCents),
+        csvMoney(l.creditCents),
+        csvMoney(l.adjustmentCents),
+        csvMoney(l.totalCents),
+        STATE_LABEL[l.status],
+      ]),
+    )
 
   const setPaid = (invoiceId: string, paid: boolean) =>
     act.run(async () => {
@@ -122,12 +145,17 @@ export default function Rateio({ period, canWrite, goCobrancas }: { period: stri
       <div className="c">
         <div className="c-label row-between">
           Faturas por morador
+          <span className="row-actions">
+          <button className="btn btn-ghost btn-sm" onClick={exportCsv} disabled={c.lines.length === 0}>
+            Exportar CSV
+          </button>
           {canWrite && !hasPaid && !monthOpen && (
             <button className="btn btn-primary btn-sm" onClick={close} disabled={act.busy || billed.length === 0}>
               {c.closed ? 'Recalcular faturas' : 'Fechar ciclo e emitir'}
             </button>
           )}
           {canWrite && monthOpen && <span>fecha quando o mês terminar</span>}
+          </span>
         </div>
         {act.error && <div className="login-error">{act.error}</div>}
         {c.closed && open > 0 && goCobrancas && (

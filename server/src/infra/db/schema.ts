@@ -237,6 +237,11 @@ export const vehicle = pgTable('vehicle', {
 // sem o carro plugar.
 export const reservationStatus = pgEnum('reservation_status', ['PENDING_PLUGIN', 'SCHEDULED', 'CANCELLED', 'EXPIRED'])
 
+// Como o morador pediu a carga: até uma % da bateria, uma quantidade de kWh ou um valor em
+// reais. Em kWh e em reais a energia da reserva fica fixa (`energyKwh`); `targetSoc` é só onde
+// ela deve levar a bateria, recalculado quando a telemetria lê a bateria real.
+export const reservationGoal = pgEnum('reservation_goal', ['SOC', 'KWH', 'BRL'])
+
 export const reservation = pgTable('reservation', {
   id: id(),
   userId: text('user_id').notNull().references(() => user.id, { onDelete: 'cascade' }),
@@ -254,6 +259,9 @@ export const reservation = pgTable('reservation', {
   energyKwh: numeric('energy_kwh', { precision: 8, scale: 3 }),
   estimatedCostCents: integer('estimated_cost_cents'),
   targetSoc: integer('target_soc').notNull(),
+  goal: reservationGoal('goal').notNull().default('SOC'),
+  // Só no pedido por valor: o teto em reais que a janela respeita.
+  budgetCents: integer('budget_cents'),
   // Sempre presente: "pronto até" — o prazo que o morador pediu, em ambos os fluxos.
   deadlineAt: timestamp('deadline_at').notNull(),
   status: reservationStatus('status').notNull().default('SCHEDULED'),
@@ -266,6 +274,8 @@ export const condoSettings = pgTable('condo_settings', {
   fixedMonthlyCostCents: integer('fixed_monthly_cost_cents').notNull(),
   idleCentsPerMinute: integer('idle_cents_per_minute').notNull(),
   idleGraceMinutes: integer('idle_grace_minutes').notNull(),
+  // Teto da cobrança de ociosidade por sessão. Nulo: sem teto.
+  idleMaxCentsPerSession: integer('idle_max_cents_per_session'),
   dueDay: integer('due_day').notNull(),
   updatedAt: updatedAt(),
 })

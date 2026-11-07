@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { fromLocal } from '../../../shared/time.js'
 import { parseOpeningHours } from './opening.js'
-import { cheapestWindow, recommendedForDeadline, startSlots, windowCostCents, type HourPrice } from './scheduling.js'
+import { cheapestWindow, hoursForBudget, recommendedForDeadline, startSlots, windowCostCents, type HourPrice } from './scheduling.js'
 
 const at = (h: number, mi = 0) => fromLocal(2026, 7, 3, h, mi) // sexta
 
@@ -147,5 +147,46 @@ describe('recommendedForDeadline', () => {
     const slots = [slot(21, 5, 2200), slot(22, 4, 1700), slot(23, 4, null)]
     expect(recommendedForDeadline(slots, at(26))!.startsAt).toEqual(at(22))
     expect(recommendedForDeadline(slots, at(24))).toBeUndefined()
+  })
+})
+
+describe('hoursForBudget', () => {
+  it('o mesmo valor rende mais horas na madrugada barata', () => {
+    const c = curve24()
+    // 7 kW: de dia 700 centavos/h, de madrugada 280 centavos/h
+    expect(hoursForBudget(c, at(10).getTime(), 1400, 7, 10)).toBeCloseTo(2)
+    expect(hoursForBudget(c, at(1).getTime(), 1400, 7, 10)).toBeCloseTo(5)
+  })
+  it('para quando a bateria enche', () => {
+    expect(hoursForBudget(curve24(), at(1).getTime(), 100_000, 7, 3)).toBe(3)
+  })
+  it('custo da janela não passa do valor pedido', () => {
+    const c = curve24()
+    const h = hoursForBudget(c, at(4).getTime(), 2000, 7, 10)!
+    expect(windowCostCents(c, at(4).getTime(), h, 7)).toBeLessThanOrEqual(2000)
+  })
+  it('null sem curva', () => {
+    expect(hoursForBudget([], at(1).getTime(), 1000, 7, 3)).toBeNull()
+  })
+})
+
+describe('startSlots por valor', () => {
+  it('cada horário tem a própria duração e energia', () => {
+    const c = curve24()
+    const slots = startSlots({
+      curve: c,
+      now: at(0, 30),
+      from: at(1),
+      to: at(11),
+      hours: (s) => hoursForBudget(c, s, 1400, 7, 10),
+      rateKw: 7,
+      busy: [],
+      occupiedNow: false,
+    })
+    const one = slots.find((s) => s.startsAt.getTime() === at(1).getTime())!
+    const ten = slots.find((s) => s.startsAt.getTime() === at(10).getTime())!
+    expect(one.energyKwh).toBeCloseTo(35)
+    expect(ten.energyKwh).toBeCloseTo(14)
+    expect(one.costCents).toBeLessThanOrEqual(1400)
   })
 })

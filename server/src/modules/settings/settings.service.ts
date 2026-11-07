@@ -10,6 +10,7 @@ const DEFAULTS = {
   idleCentsPerMinute: 0,
   idleGraceMinutes: 15, // carência fixada no README do ev-chargeops-s1
   dueDay: 10,
+  idleMaxCentsPerSession: null,
 }
 
 export const settingsService = {

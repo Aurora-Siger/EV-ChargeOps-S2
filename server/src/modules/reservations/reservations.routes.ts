@@ -3,21 +3,34 @@ import { z } from 'zod'
 import { requireAuth, type AuthVars } from '../../infra/auth/middleware.js'
 import { reservationsService } from './reservations.service.js'
 
+/**
+ * Quanto carregar, numa das três formas: meta de bateria (%), energia (kWh) ou valor (centavos).
+ * Exatamente uma delas.
+ */
+const goal = {
+  targetSoc: z.coerce.number().int().min(1).max(100).optional(),
+  energyKwh: z.coerce.number().min(1).max(200).optional(),
+  budgetCents: z.coerce.number().int().min(100).max(100_000).optional(),
+}
+const oneGoal = (g: { targetSoc?: number; energyKwh?: number; budgetCents?: number }) =>
+  [g.targetSoc, g.energyKwh, g.budgetCents].filter((v) => v !== undefined).length === 1
+const GOAL_MSG = 'Escolha uma forma: bateria, kWh ou valor'
+
 const nowBody = z.object({
   chargerId: z.string().min(1),
   vehicleId: z.string().min(1),
-  targetSoc: z.number().int().min(1).max(100),
+  ...goal,
   // sem prazo (a tela): começa agora; com prazo (o Volt): a janela mais barata até lá
   deadlineHours: z.number().min(0.5).max(24 * 7).optional(),
   // Só vale quando a telemetria não traz a bateria (ver scheduleNow).
   startSoc: z.number().int().min(0).max(99).optional(),
-})
+}).refine(oneGoal, GOAL_MSG)
 
 const nowPreviewQuery = z.object({
   chargerId: z.string().min(1),
   vehicleId: z.string().min(1),
-  targetSoc: z.coerce.number().int().min(1).max(100),
-})
+  ...goal,
+}).refine(oneGoal, GOAL_MSG)
 
 const laterBody = z.object({
   chargerId: z.string().min(1),
@@ -30,21 +43,22 @@ const slotsQuery = z
   .object({
     chargerId: z.string().min(1),
     vehicleId: z.string().min(1),
-    targetSoc: z.coerce.number().int().min(1).max(100),
+    ...goal,
     from: z.coerce.date(),
     to: z.coerce.date(),
     startSoc: z.coerce.number().int().min(0).max(99).optional(),
   })
+  .refine(oneGoal, GOAL_MSG)
   .refine((q) => q.to > q.from && q.to.getTime() - q.from.getTime() <= 8 * 24 * 3_600_000, 'Intervalo inválido (até 8 dias)')
 
 const atBody = z.object({
   chargerId: z.string().min(1),
   vehicleId: z.string().min(1),
-  targetSoc: z.number().int().min(1).max(100),
+  ...goal,
   startsAt: z.coerce.date(),
   // bateria informada pelo morador — só pra começar agora
   startSoc: z.number().int().min(0).max(99).optional(),
-})
+}).refine(oneGoal, GOAL_MSG)
 
 export const reservationsRoutes = new Hono<{ Variables: AuthVars }>()
   .use(requireAuth)

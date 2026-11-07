@@ -30,6 +30,27 @@ export function windowCostCents(curve: HourPrice[], start: number, hours: number
   return Math.round(cost)
 }
 
+/**
+ * Quantas horas de carga cabem em `budgetCents` começando em `start`, na mesma conta de meia
+ * em meia hora do `windowCostCents`, sem passar de `maxHours` (bateria cheia). Pedido "por
+ * valor": o horário barato rende mais energia pelo mesmo dinheiro. null sem curva cobrindo.
+ */
+export function hoursForBudget(curve: HourPrice[], start: number, budgetCents: number, rateKw: number, maxHours: number): number | null {
+  if (rateKw <= 0 || budgetCents <= 0 || maxHours <= 0) return 0
+  let spent = 0
+  let hours = 0
+  for (let t = start; maxHours - hours > 1e-9; t += HOUR_MS / 2) {
+    const p = priceAt(curve, t)
+    if (!p) return null
+    const step = Math.min(0.5, maxHours - hours)
+    const cost = p.priceCentsKwh * rateKw * step
+    if (spent + cost > budgetCents) return hours + (budgetCents - spent) / (p.priceCentsKwh * rateKw)
+    spent += cost
+    hours += step
+  }
+  return hours
+}
+
 export type Window = { start: Date; end: Date; hours: number; costCents: number; level: PriceLevel }
 
 /**
@@ -77,8 +98,13 @@ export type StartSlot = {
   /** Nível da tarifa no meio da janela (mesma régua do `cheapestWindow`), não só na hora de início. */
   level: PriceLevel
   costCents: number | null
+  /** Energia que a janela entrega (varia por horário no pedido por valor). */
+  energyKwh: number
   free: boolean
 }
+
+/** Duração fixa da janela, ou uma por horário de início (pedido por valor; null = sem curva). */
+export type SlotHours = number | ((start: number) => number | null)
 
 /**
  * Horários em que dá pra começar a carregar dentro de [from, to): "agora" (se `now` cai no
@@ -92,7 +118,7 @@ export function startSlots(args: {
   now: Date
   from: Date
   to: Date
-  hours: number
+  hours: SlotHours
   rateKw: number
   busy: Busy[]
   occupiedNow: boolean
@@ -104,16 +130,22 @@ export function startSlots(args: {
   if (n >= from.getTime() && n < to.getTime()) starts.push(n)
   for (let s = Math.ceil(Math.max(from.getTime(), n + 1) / HOUR_MS) * HOUR_MS; s < to.getTime(); s += HOUR_MS) starts.push(s)
 
-  return starts.filter((s) => fitsOpening(opening, new Date(s), new Date(s + hours * HOUR_MS))).map((s) => {
-    const e = s + hours * HOUR_MS
+  const hoursAt = (s: number) => (typeof hours === 'number' ? hours : hours(s))
+  return starts.flatMap((s) => {
+    const h = hoursAt(s)
+    if (h === null || h <= 0) return []
+    return fitsOpening(opening, new Date(s), new Date(s + h * HOUR_MS)) ? [{ s, h }] : []
+  }).map(({ s, h }) => {
+    const e = s + h * HOUR_MS
     const isNow = s === n
     const clash = busy.some((b) => b.startsAt.getTime() < e && b.endsAt.getTime() > s)
     return {
       startsAt: new Date(s),
       endsAt: new Date(e),
       now: isNow,
-      level: priceAt(curve, s + (hours * HOUR_MS) / 2)?.level ?? 'mid',
-      costCents: windowCostCents(curve, s, hours, rateKw),
+      level: priceAt(curve, s + (h * HOUR_MS) / 2)?.level ?? 'mid',
+      costCents: windowCostCents(curve, s, h, rateKw),
+      energyKwh: Math.round(h * rateKw * 10) / 10,
       free: !clash && !(isNow && occupiedNow),
     }
   })

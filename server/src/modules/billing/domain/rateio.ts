@@ -3,6 +3,7 @@
  *
  *   Custo_sessão = mult × [ kWh × tarifa_base + ocioso_cobrável × valor_minuto ]
  *   ocioso_cobrável = max(0, min_ocioso − carência)
+ *   a parte da ociosidade (já com mult) para no teto por sessão do condomínio, se houver
  *
  * Custo fixo da infraestrutura: dividido igualmente entre os moradores ATIVOS no ciclo (quem
  * recarregou ao menos uma vez); quem não carregou fica isento. O que o morador pagou além do
@@ -24,12 +25,16 @@ export type SessionPriceInput = {
   tariffBaseCentsKwh: number
   idleCentsPerMinute: number
   idleGraceMinutes: number
+  /** Teto da cobrança de ociosidade por sessão (null: sem teto). */
+  idleMaxCentsPerSession?: number | null
 }
 
 export type SessionPrice = {
   /** kWh × tarifa base: o custo real de energia, sem multiplicador */
   energyCostCents: number
   idleChargeableMin: number
+  /** parte da ociosidade no valor cobrado (com mult, já no teto) */
+  idleCents: number
   /** o que a sessão efetivamente cobra (com mult) */
   chargedCents: number
 }
@@ -37,10 +42,13 @@ export type SessionPrice = {
 export function priceSession(i: SessionPriceInput): SessionPrice {
   const idleChargeableMin = Math.max(0, i.idleMin - i.idleGraceMinutes)
   const energy = i.energyKwh * i.tariffBaseCentsKwh
+  const idleRaw = i.mult * idleChargeableMin * i.idleCentsPerMinute
+  const idle = i.idleMaxCentsPerSession != null ? Math.min(idleRaw, i.idleMaxCentsPerSession) : idleRaw
   return {
     energyCostCents: Math.round(energy),
     idleChargeableMin,
-    chargedCents: Math.round(i.mult * (energy + idleChargeableMin * i.idleCentsPerMinute)),
+    idleCents: Math.round(idle),
+    chargedCents: Math.round(i.mult * energy + idle),
   }
 }
 

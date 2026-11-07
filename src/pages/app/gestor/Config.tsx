@@ -5,7 +5,7 @@ import { useApi } from '../../../lib/useApi'
 import { ErrorBox, Field, Loading } from '../ui'
 import { useAction } from '../../../lib/useAction'
 
-type Form = { name: string; fixed: string; idle: string; grace: string; dueDay: string; base: string }
+type Form = { name: string; fixed: string; idle: string; grace: string; idleMax: string; dueDay: string; base: string }
 
 const brl = (cents: number | null) => (cents === null ? '' : (cents / 100).toFixed(2).replace('.', ','))
 const cents = (v: string) => Math.round(Number(v.replace(',', '.')) * 100)
@@ -24,6 +24,7 @@ function ConfigForm({ settings, canWrite, onSaved }: { settings: Settings; canWr
     fixed: brl(settings.fixedMonthlyCostCents),
     idle: brl(settings.idleCentsPerMinute),
     grace: String(settings.idleGraceMinutes),
+    idleMax: brl(settings.idleMaxCentsPerSession),
     dueDay: String(settings.dueDay),
     base: brl(settings.basePriceCentsKwh),
   })
@@ -45,6 +46,7 @@ function ConfigForm({ settings, canWrite, onSaved }: { settings: Settings; canWr
           fixedMonthlyCostCents: cents(f.fixed),
           idleCentsPerMinute: cents(f.idle),
           idleGraceMinutes: Number(f.grace),
+          idleMaxCentsPerSession: f.idleMax.trim() === '' ? null : cents(f.idleMax),
           dueDay: Number(f.dueDay),
           basePriceCentsKwh: cents(f.base),
         },
@@ -77,9 +79,14 @@ function ConfigForm({ settings, canWrite, onSaved }: { settings: Settings; canWr
             <input value={f.grace} onChange={set('grace')} inputMode="numeric" required />
           </Field>
         </div>
-        <Field label="Dia de vencimento" hint="no mês seguinte ao ciclo (1 a 28)">
-          <input value={f.dueDay} onChange={set('dueDay')} inputMode="numeric" required />
-        </Field>
+        <div className="form-2">
+          <Field label="Teto da ociosidade (R$)" hint="por recarga; vazio, sem teto">
+            <input value={f.idleMax} onChange={set('idleMax')} inputMode="decimal" placeholder="sem teto" />
+          </Field>
+          <Field label="Dia de vencimento" hint="no mês seguinte ao ciclo (1 a 28)">
+            <input value={f.dueDay} onChange={set('dueDay')} inputMode="numeric" required />
+          </Field>
+        </div>
       </fieldset>
       <div className="hint-line">
         A tarifa base nova vale para as recargas que entrarem daqui para a frente; as já registradas mantêm a tarifa do dia.

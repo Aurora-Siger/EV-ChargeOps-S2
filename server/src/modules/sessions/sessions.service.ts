@@ -149,6 +149,7 @@ export const sessionsService = {
               tariffBaseCentsKwh: r.tariffBaseCentsKwh,
               idleCentsPerMinute: settings.idleCentsPerMinute,
               idleGraceMinutes: settings.idleGraceMinutes,
+              idleMaxCentsPerSession: settings.idleMaxCentsPerSession,
             })
       const next = { demand, mult, energyCostCents: price?.energyCostCents ?? null, priceCents: price?.chargedCents ?? null }
       if (

@@ -50,6 +50,8 @@ const settingsBody = z.object({
   fixedMonthlyCostCents: z.number().int().min(0).max(100_000_000),
   idleCentsPerMinute: z.number().int().min(0).max(10_000),
   idleGraceMinutes: z.number().int().min(0).max(240),
+  // teto da ociosidade por sessão; null tira o teto (ausente: mantém)
+  idleMaxCentsPerSession: z.number().int().min(0).max(1_000_000).nullable().optional(),
   dueDay: z.number().int().min(1).max(28),
   basePriceCentsKwh: z.number().int().positive().max(10_000),
 })
