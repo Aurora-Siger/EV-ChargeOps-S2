@@ -1,6 +1,11 @@
 /* Ícones do app (SVG inline, herdam a cor do texto). */
 
 export const I = {
+  download: (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 3v12M7 10l5 5 5-5M4 21h16" />
+    </svg>
+  ),
   home: (
     <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
       <path d="M3 10.5 12 3l9 7.5V21H3z" />
