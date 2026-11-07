@@ -6133,16 +6133,18 @@ img {
 
 .mode-card {
   flex: 1;
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  grid-template-rows: auto auto;
+  column-gap: 10px;
+  row-gap: 2px;
   align-items: center;
-  gap: 7px;
-  padding: 18px 10px;
-  border-radius: var(--r-lg);
+  padding: 12px 12px;
+  border-radius: var(--r-md);
   border: 1px solid var(--bd);
   background: var(--bg2);
-  text-align: center;
-  transition: border-color 0.15s, background 0.15s, transform 0.1s;
+  text-align: left;
+  transition: border-color 0.15s, transform 0.1s;
 }
 
 .mode-card:active {
@@ -6150,43 +6152,34 @@ img {
 }
 
 .mode-card .ic {
-  width: 40px;
-  height: 40px;
-  border-radius: 13px;
+  grid-row: span 2;
   display: flex;
-  align-items: center;
-  justify-content: center;
-  border: 1px solid var(--bd2);
-  background: var(--bg3);
-  color: var(--text2);
-  transition: background 0.15s, color 0.15s;
+  color: var(--text3);
+  transition: color 0.15s;
+}
+
+.mode-card .ic svg {
+  width: 20px;
+  height: 20px;
 }
 
 .mode-card .t {
-  font-family: var(--display);
-  font-size: 14px;
-  font-weight: 700;
+  font-size: 13.5px;
+  font-weight: 600;
   color: var(--text);
 }
 
 .mode-card .s {
-  font-size: 11px;
+  font-size: 11.5px;
   color: var(--text3);
 }
 
 .mode-card.on {
-  border-color: var(--pink-b);
-  background: var(--pink-l);
+  border-color: var(--pink);
 }
 
 .mode-card.on .ic {
-  border-color: transparent;
-  background: var(--pink);
-  color: #fff;
-}
-
-.mode-card.on .s {
-  color: var(--pink-soft);
+  color: var(--pink);
 }
 
 .live-soc {
@@ -6207,9 +6200,9 @@ img {
 }
 
 .live-soc b {
-  font-family: var(--mono);
   color: var(--text);
-  font-size: 15px;
+  font-size: 13px;
+  font-weight: 600;
   font-variant-numeric: tabular-nums;
 }
 
@@ -7764,7 +7757,7 @@ img {
   font-variant-numeric: tabular-nums;
 }
 
-/* quanto carregar: forma (abas com ícone), resultado em destaque e opções */
+/* quanto carregar: forma (controle segmentado), resultado e opções */
 .goal {
   margin-top: 10px;
 }
@@ -7772,51 +7765,38 @@ img {
 .goal-tabs {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 6px;
-  padding: 4px;
-  border-radius: 14px;
+  gap: 2px;
+  padding: 3px;
+  border-radius: 10px;
   background: var(--bg3);
-  border: 1px solid var(--bd);
 }
 
 .goal-tab {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  padding: 9px 6px;
-  border-radius: 10px;
-  font-size: 12.5px;
-  font-weight: 600;
-  color: var(--text2);
-  transition: background 0.2s ease, color 0.2s ease;
-}
-
-.goal-tab .ic {
-  display: flex;
-}
-
-.goal-tab .ic svg {
-  width: 16px;
-  height: 16px;
+  padding: 8px 6px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text3);
+  transition: background 0.15s ease, color 0.15s ease;
 }
 
 .goal-tab.on {
-  background: linear-gradient(135deg, #f472b6, #e8185a);
-  color: #fff;
-  box-shadow: 0 6px 18px -8px rgba(232, 24, 90, 0.7);
+  background: var(--bg4);
+  color: var(--text);
+  font-weight: 600;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
 }
 
 .goal-readout {
-  padding: 18px 0 14px;
+  padding: 22px 0 18px;
   text-align: center;
 }
 
 .goal-big {
   font-family: var(--display);
-  font-size: 40px;
-  font-weight: 800;
-  letter-spacing: -0.03em;
+  font-size: 34px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
   line-height: 1;
   color: var(--text);
   font-variant-numeric: tabular-nums;
@@ -7825,7 +7805,7 @@ img {
 .goal-sub {
   margin-top: 8px;
   font-size: 13px;
-  color: var(--pink-soft);
+  color: var(--text3);
   font-variant-numeric: tabular-nums;
 }
 
@@ -7836,21 +7816,21 @@ img {
 
 .goal-chip {
   flex: 1;
-  padding: 10px 6px;
-  border-radius: 100px;
+  padding: 9px 6px;
+  border-radius: 10px;
   border: 1px solid var(--bd);
-  background: var(--bg3);
-  font-size: 13.5px;
-  font-weight: 700;
+  background: transparent;
+  font-size: 13px;
+  font-weight: 500;
   color: var(--text2);
   font-variant-numeric: tabular-nums;
-  transition: border-color 0.2s ease, color 0.2s ease, background 0.2s ease;
+  transition: border-color 0.15s ease, color 0.15s ease;
 }
 
 .goal-chip.on {
-  border-color: var(--pink-b);
-  background: var(--pink-l);
-  color: var(--pink-soft);
+  border-color: var(--pink);
+  color: var(--text);
+  font-weight: 600;
 }
 
 .goal-chip:disabled {
@@ -7860,48 +7840,55 @@ img {
 /* custo estimado no topo do resumo */
 .cost-hero {
   display: flex;
-  align-items: baseline;
+  align-items: flex-end;
+  justify-content: space-between;
   gap: 10px;
   padding: 14px 0 12px;
   border-bottom: 1px solid var(--bd);
 }
 
 .cost-hero .k {
+  display: block;
+  margin-bottom: 4px;
   font-size: 12px;
   color: var(--text3);
 }
 
 .cost-hero b {
   font-family: var(--display);
-  font-size: 28px;
-  font-weight: 800;
+  font-size: 24px;
+  font-weight: 700;
   letter-spacing: -0.02em;
+  color: var(--text);
   font-variant-numeric: tabular-nums;
 }
 
 .cost-level {
-  margin-left: auto;
-  padding: 3px 9px;
-  border-radius: 100px;
-  font-size: 11px;
-  font-weight: 600;
-  background: var(--bg4);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding-bottom: 3px;
+  font-size: 12px;
   color: var(--text2);
 }
 
-.cost-level.cheap {
-  background: var(--green-l);
-  color: var(--green);
+.cost-level i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--text3);
 }
 
-.cost-level.mid {
-  background: rgba(251, 191, 36, 0.12);
-  color: var(--amber);
+.cost-level.cheap i {
+  background: var(--green);
 }
 
-.cost-level.peak {
-  background: rgba(248, 113, 113, 0.12);
-  color: var(--red);
+.cost-level.mid i {
+  background: var(--amber);
+}
+
+.cost-level.peak i {
+  background: var(--red);
 }
 
 .cost-hero + .row {

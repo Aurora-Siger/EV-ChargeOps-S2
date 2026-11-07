@@ -1,4 +1,4 @@
-import { useMemo, useState, type ReactNode } from 'react'
+import { useMemo, useState } from 'react'
 import Volt from '../../components/Volt'
 import {
   GOAL_DEFAULT,
@@ -15,9 +15,9 @@ import {
   socAfter,
   type ChargeGoal,
 } from '../../lib/energyPricing'
-import { fmtBRL, fmtDay, fmtKwh, fmtNum, fmtTime, fromLocal, LEVEL_LABEL, local, WEEKDAYS } from '../../lib/format'
+import { fmtBRL, fmtDay, fmtKwh, fmtNum, fmtTime, fromLocal, local, WEEKDAYS } from '../../lib/format'
 import { api } from '../../lib/http'
-import type { GoalKind, PlugInPreview, Reservation, StartSlot, StartSlots, Station, Vehicle } from '../../lib/types'
+import type { PlugInPreview, Reservation, StartSlot, StartSlots, Station, Vehicle } from '../../lib/types'
 import { useApi } from '../../lib/useApi'
 import { distanceKm, fmtDistance, placeholderGradient } from '../../lib/chargePoints'
 import { I } from './icons'
@@ -91,10 +91,10 @@ function BatteryGauge({ vehicle, soc, target, go }: { vehicle: Vehicle; soc: num
   return (
     <div className="batt">
       <div className="batt-head">
-        <span>Capacidade da bateria</span>
+        <span>Bateria</span>
         <b>
           {fmtKwh(vehicle.capacityKwh)}
-          {km !== null ? ` · ~${km} km cheio` : ''}
+          {km !== null ? ` · ${km} km` : ''}
         </b>
       </div>
       <div className="batt-bar" role="img" aria-label={`${soc !== null ? `agora ${soc}%, ` : ''}meta ${target}%`}>
@@ -110,7 +110,6 @@ function BatteryGauge({ vehicle, soc, target, go }: { vehicle: Vehicle; soc: num
   )
 }
 
-const GOAL_ICON: Record<GoalKind, ReactNode> = { SOC: I.car, KWH: I.bolt, BRL: I.wallet }
 
 /**
  * Quanto carregar, em três formas: autonomia (a meta de bateria em km), energia (kWh) ou valor
@@ -173,7 +172,6 @@ function GoalPicker({
             className={`goal-tab ${goal.kind === k ? 'on' : ''}`}
             onClick={() => goal.kind !== k && onPick({ kind: k, value: GOAL_DEFAULT[k] })}
           >
-            <span className="ic">{GOAL_ICON[k]}</span>
             {GOAL_KIND_LABEL[k]}
           </button>
         ))}
@@ -199,12 +197,19 @@ function GoalPicker({
 }
 
 /** O custo estimado em destaque no topo do resumo, com a faixa de preço da janela. */
+const COST_LEVEL = { cheap: 'horário barato', mid: 'horário normal', peak: 'horário de pico' } as const
+
 function CostHero({ cents, level }: { cents: number; level: StartSlot['level'] }) {
   return (
     <div className="cost-hero">
-      <span className="k">Estimado</span>
-      <b className={`est ${level}`}>{fmtBRL(cents)}</b>
-      <span className={`cost-level ${level}`}>{LEVEL_LABEL[level].toLowerCase()}</span>
+      <div>
+        <span className="k">Custo estimado</span>
+        <b>{fmtBRL(cents)}</b>
+      </div>
+      <span className={`cost-level ${level}`}>
+        <i />
+        {COST_LEVEL[level]}
+      </span>
     </div>
   )
 }
@@ -474,7 +479,7 @@ export default function Agendar({ go }: { go: (t: Tab) => void }) {
   return (
     <div className="screen-anim">
       <div className="screen-title">Agendar recarga</div>
-      <div className="screen-sub">Escolhe onde, a meta e o horário — no prédio, a tarifa dinâmica mostra quais horas saem mais baratas.</div>
+      <div className="screen-sub">Defina quanto carregar e quando. As horas mais baratas ficam em destaque.</div>
 
       {busyByOther && (
         <div className="c">
@@ -498,7 +503,7 @@ export default function Agendar({ go }: { go: (t: Tab) => void }) {
           >
             <span className="ic">{I.bolt}</span>
             <span className="t">Já plugado</span>
-            <span className="s">carro na tomada agora</span>
+            <span className="s">carro na tomada</span>
           </button>
           <button
             className={`mode-card ${mode === 'later' ? 'on' : ''}`}
@@ -508,7 +513,7 @@ export default function Agendar({ go }: { go: (t: Tab) => void }) {
             }}
           >
             <span className="ic">{I.cal}</span>
-            <span className="t">Agendar pra depois</span>
+            <span className="t">Pra depois</span>
             <span className="s">ainda vou plugar</span>
           </button>
         </div>
