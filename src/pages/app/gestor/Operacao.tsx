@@ -1,5 +1,6 @@
 import { Fragment, useState } from 'react'
 import ChargerStatus from '../../../components/ChargerStatus'
+import { csvDateTime, csvMoney, downloadCsv } from '../../../lib/csv'
 import { fmtBRL, fmtDay, fmtKwh, fmtMult, fmtTime, LEVEL_LABEL, WEEKDAYS } from '../../../lib/format'
 import { api } from '../../../lib/http'
 import type { AdminUser, Demand, Forecast, Session } from '../../../lib/types'
@@ -115,6 +116,25 @@ function Sessions({ period }: { period: string }) {
       sessions.reload()
     })
 
+  const exportCsv = () =>
+    downloadCsv(
+      `sessoes-${period}.csv`,
+      ['Início', 'Fim', 'Unidade', 'Morador', 'Cartão', 'Energia (kWh)', 'Duração (min)', 'Ociosidade (min)', 'Multiplicador', 'Custo da energia (R$)', 'Valor cobrado (R$)'],
+      (sessions.data ?? []).map((s) => [
+        csvDateTime(s.startedAt),
+        s.endedAt ? csvDateTime(s.endedAt) : null,
+        s.unitLabel,
+        s.userName,
+        s.cardNumber,
+        Number(s.energyKwh.toFixed(3)),
+        s.durationMin,
+        s.idleMin,
+        s.mult,
+        csvMoney(s.energyCostCents),
+        csvMoney(s.chargedCents),
+      ]),
+    )
+
   const sync = () =>
     act.run(async () => {
       const r = await api<{ imported: number; priced: number }>('/api/admin/sessions/sync', { method: 'POST' })
@@ -131,6 +151,9 @@ function Sessions({ period }: { period: string }) {
             <input type="checkbox" checked={onlyUnassigned} onChange={(e) => setOnlyUnassigned(e.target.checked)} /> só sem
             morador
           </label>
+          <button className="btn btn-ghost btn-sm" onClick={exportCsv} disabled={!sessions.data?.length}>
+            Exportar CSV
+          </button>
           <button className="btn btn-ghost btn-sm" onClick={sync} disabled={act.busy}>
             Sincronizar SEMS
           </button>

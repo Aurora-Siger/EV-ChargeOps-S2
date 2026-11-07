@@ -391,6 +391,8 @@ export type Settings = {
   fixedMonthlyCostCents: number
   idleCentsPerMinute: number
   idleGraceMinutes: number
+  /** teto da ociosidade por sessão (null: sem teto) */
+  idleMaxCentsPerSession: number | null
   dueDay: number
   basePriceCentsKwh: number | null
 }
