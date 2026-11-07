@@ -13,25 +13,74 @@ const LEVEL_STYLE = { color: 'var(--green)', borderColor: 'var(--green-b)', back
 
 type LiveSession = NonNullable<NonNullable<Station['live']>['session']>
 
-/**
- * Tempo, energia, quanto já deu em reais e a potência da sessão em andamento. O valor usa a
- * tarifa desta hora: é uma prévia, o preço final sai no fechamento da sessão.
- */
-function SessionStats({ session, priceCentsKwh }: { session: LiveSession; priceCentsKwh: number | null }) {
-  const cells = [
-    { v: fmtMinutes(session.minutes), k: 'tempo' },
-    { v: fmtNum(session.kwh, 2), k: 'kWh' },
-    ...(priceCentsKwh !== null ? [{ v: fmtBRL(session.kwh * priceCentsKwh), k: 'até agora', money: true }] : []),
-    ...(session.powerKw !== null ? [{ v: fmtNum(session.powerKw, 2), k: 'kW agora' }] : []),
-  ]
+/** Anel de progresso da carga: até a meta quando a bateria é lida; sem ela, um arco girando. */
+function ChargeRing({ pct }: { pct: number | null }) {
+  const r = 27
+  const c = 2 * Math.PI * r
   return (
-    <div className="status-live-stats">
-      {cells.map((c) => (
-        <div key={c.k}>
-          <span className={'money' in c ? 'v money' : 'v'}>{c.v}</span>
-          <span className="k">{c.k}</span>
+    <div className={`charge-ring ${pct === null ? 'spin' : ''}`}>
+      <svg viewBox="0 0 64 64" aria-hidden="true">
+        <defs>
+          <linearGradient id="ringGrad" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stopColor="#f472b6" />
+            <stop offset="100%" stopColor="#e8185a" />
+          </linearGradient>
+        </defs>
+        <circle cx="32" cy="32" r={r} className="track" />
+        <circle
+          cx="32"
+          cy="32"
+          r={r}
+          className="arc"
+          strokeDasharray={c}
+          strokeDashoffset={pct === null ? c * 0.72 : c * (1 - Math.min(100, Math.max(0, pct)) / 100)}
+        />
+      </svg>
+      <span className="charge-ring-c">{pct === null ? I.bolt : `${pct}%`}</span>
+    </div>
+  )
+}
+
+/**
+ * Recarga em andamento: o anel (bateria até a meta, quando lida), quanto já deu em reais e os
+ * números da sessão. O valor usa a tarifa desta hora: é uma prévia, o preço final sai no
+ * fechamento da sessão.
+ */
+function LiveCharge({
+  session,
+  soc,
+  targetSoc,
+  etaMin,
+  priceCentsKwh,
+}: {
+  session: LiveSession | null
+  soc: number | null
+  targetSoc: number
+  etaMin: number | null
+  priceCentsKwh: number | null
+}) {
+  const facts = [
+    session && fmtKwh(session.kwh, 2),
+    session && fmtMinutes(session.minutes),
+    session?.powerKw != null && `${fmtNum(session.powerKw, 1)} kW`,
+  ].filter(Boolean)
+  return (
+    <div className="live-charge">
+      <ChargeRing pct={soc} />
+      <div className="live-charge-body">
+        <div className="live-charge-k">
+          <span className="dot" /> carregando agora
+          {session && priceCentsKwh !== null && <span className="km">+{fmtNum(session.km, 0)} km</span>}
         </div>
-      ))}
+        <div className="live-charge-v">
+          {session && priceCentsKwh !== null ? fmtBRL(session.kwh * priceCentsKwh) : session ? `+${fmtNum(session.km, 0)} km` : `${soc}%`}
+        </div>
+        <div className="live-charge-s">
+          {[...facts, etaMin !== null && `${fmtMinutes(etaMin)} até ${targetSoc}%`]
+            .filter(Boolean)
+            .join(' · ')}
+        </div>
+      </div>
     </div>
   )
 }
@@ -43,29 +92,46 @@ function SessionStats({ session, priceCentsKwh }: { session: LiveSession; priceC
 function Receipt({ s }: { s: Session }) {
   const energyCharged = s.mult !== null && s.energyCostCents !== null ? Math.round(s.mult * s.energyCostCents) : null
   const idleCharged = s.chargedCents !== null && energyCharged !== null ? Math.max(0, s.chargedCents - energyCharged) : 0
-  const rows: [string, string][] = [
-    ['Início', `${fmtDay(s.startedAt)} · ${fmtTime(s.startedAt)}`],
-    ...(s.endedAt ? [['Fim', `${fmtTime(s.endedAt)}${s.durationMin !== null ? ` · ${fmtMinutes(s.durationMin)}` : ''}`] as [string, string]] : []),
-    ['Energia', fmtKwh(s.energyKwh, 2)],
-    ...(s.tariffBaseCentsKwh !== null && s.mult !== null
-      ? [['Tarifa', `${fmtBRL(s.tariffBaseCentsKwh)}/kWh · ${fmtMult(s.mult)}`] as [string, string]]
+  const lines: { k: string; d?: string; v: string }[] = [
+    {
+      k: 'Energia',
+      d:
+        s.tariffBaseCentsKwh !== null && s.mult !== null
+          ? `${fmtKwh(s.energyKwh, 2)} × ${fmtBRL(s.tariffBaseCentsKwh)} × ${fmtMult(s.mult)}`
+          : fmtKwh(s.energyKwh, 2),
+      v: energyCharged !== null ? fmtBRL(energyCharged) : '—',
+    },
+    ...(s.idleMin > 0
+      ? [{ k: 'Ociosidade', d: `${fmtMinutes(s.idleMin)} plugado depois da carga`, v: idleCharged > 0 ? fmtBRL(idleCharged) : 'R$ 0,00' }]
       : []),
-    ...(energyCharged !== null ? [['Energia cobrada', fmtBRL(energyCharged)] as [string, string]] : []),
-    ...(s.idleMin > 0 ? [['Ociosidade', `${fmtMinutes(s.idleMin)}${idleCharged > 0 ? ` · ${fmtBRL(idleCharged)}` : ' · sem custo'}`] as [string, string]] : []),
   ]
   return (
-    <div className="receipt">
-      {rows.map(([k, v]) => (
-        <div className="row" key={k}>
-          <span>{k}</span>
-          <b>{v}</b>
+    <div className="rcpt">
+      <div className="rcpt-head">
+        <div>
+          <div className="rcpt-k">Recibo</div>
+          <div className="rcpt-when">
+            {fmtDay(s.startedAt)} · {fmtTime(s.startedAt)}
+            {s.endedAt && ` às ${fmtTime(s.endedAt)}`}
+          </div>
         </div>
-      ))}
-      <div className="row total">
-        <span>Total</span>
-        <b>{s.chargedCents !== null ? fmtBRL(s.chargedCents) : 'em cálculo'}</b>
+        <div className="rcpt-total">{s.chargedCents !== null ? fmtBRL(s.chargedCents) : 'em cálculo'}</div>
       </div>
-      <div className="receipt-note">entra no rateio do mês da sua unidade</div>
+      <div className="rcpt-lines">
+        {lines.map((l) => (
+          <div className="rcpt-line" key={l.k}>
+            <div>
+              <div className="t">{l.k}</div>
+              {l.d && <div className="d">{l.d}</div>}
+            </div>
+            <b>{l.v}</b>
+          </div>
+        ))}
+      </div>
+      <div className="rcpt-foot">
+        {s.level && <span className={`rcpt-tag ${s.level}`}>tarifa {LEVEL_LABEL[s.level].toLowerCase()}</span>}
+        <span>entra no rateio do mês</span>
+      </div>
     </div>
   )
 }
@@ -146,30 +212,14 @@ export default function Home({ go }: { go: (t: Tab) => void }) {
               {now && ` · agora ${fmtBRL(now.priceCentsKwh)}/kWh (${LEVEL_LABEL[now.level].toLowerCase()})`}
             </div>
 
-            {charging && home?.soc == null && session && (
-              <div className="status-live">
-                <div className="status-live-row">
-                  <span className="status-live-num">{fmtNum(session.km)} km</span>
-                  <span className="status-live-label">autonomia ganha · carregando agora</span>
-                </div>
-                <SessionStats session={session} priceCentsKwh={now?.priceCentsKwh ?? null} />
-              </div>
-            )}
-
-            {charging && home?.soc != null && (
-              <div className="status-live">
-                <div className="status-live-row">
-                  <span className="status-live-num">{home.soc}%</span>
-                  <span className="status-live-label">
-                    carregando agora
-                    {etaMin !== null && ` · ${fmtMinutes(etaMin)} até ${targetSoc}%`}
-                  </span>
-                </div>
-                <div className="status-live-bar">
-                  <div className="fill" style={{ width: `${home.soc}%` }} />
-                </div>
-                {session && <SessionStats session={session} priceCentsKwh={now?.priceCentsKwh ?? null} />}
-              </div>
+            {charging && (session || home?.soc != null) && (
+              <LiveCharge
+                session={session}
+                soc={home?.soc ?? null}
+                targetSoc={targetSoc}
+                etaMin={etaMin}
+                priceCentsKwh={now?.priceCentsKwh ?? null}
+              />
             )}
 
             <button className="btn btn-primary" onClick={() => go('agendar')}>

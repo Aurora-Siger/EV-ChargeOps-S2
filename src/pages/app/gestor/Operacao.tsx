@@ -151,8 +151,8 @@ function Sessions({ period }: { period: string }) {
             <input type="checkbox" checked={onlyUnassigned} onChange={(e) => setOnlyUnassigned(e.target.checked)} /> só sem
             morador
           </label>
-          <button className="btn btn-ghost btn-sm" onClick={exportCsv} disabled={!sessions.data?.length}>
-            Exportar CSV
+          <button className="btn btn-ghost btn-sm btn-csv" onClick={exportCsv} disabled={!sessions.data?.length}>
+            {I.download} CSV
           </button>
           <button className="btn btn-ghost btn-sm" onClick={sync} disabled={act.busy}>
             Sincronizar SEMS

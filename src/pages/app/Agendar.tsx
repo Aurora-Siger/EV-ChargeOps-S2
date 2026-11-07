@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, type ReactNode } from 'react'
 import Volt from '../../components/Volt'
 import {
   GOAL_DEFAULT,
@@ -110,39 +110,13 @@ function BatteryGauge({ vehicle, soc, target, go }: { vehicle: Vehicle; soc: num
   )
 }
 
-/** Metas em autonomia do carro cadastrado (km, ou kWh sem autonomia cadastrada), com % e o uso de cada uma como apoio. */
-function TargetChips({
-  vehicle,
-  active,
-  enabled,
-  onPick,
-}: {
-  vehicle: Vehicle
-  active: number
-  enabled: number[]
-  onPick: (t: number) => void
-}) {
-  return (
-    <div className="ask-targets" style={{ marginTop: 12, marginBottom: 0 }}>
-      {TARGETS.map((t) => {
-        const km = rangeAt(vehicle, t)
-        return (
-          <button key={t} className={`ask-target ${t === active ? 'on' : ''}`} disabled={!enabled.includes(t)} onClick={() => onPick(t)}>
-            <b>{km !== null ? `~${km} km` : fmtKwh((t / 100) * vehicle.capacityKwh)}</b>
-            <span>
-              {t}% · {TARGET_USE[t]}
-            </span>
-          </button>
-        )
-      })}
-    </div>
-  )
-}
+const GOAL_ICON: Record<GoalKind, ReactNode> = { SOC: I.car, KWH: I.bolt, BRL: I.wallet }
 
 /**
  * Quanto carregar, em três formas: autonomia (a meta de bateria em km), energia (kWh) ou valor
- * (R$). `fromSoc` é a bateria de partida (a lida, ou a estimada) e `priceCentsKwh` o preço médio
- * da janela já calculada, só pra traduzir o valor em km na etiqueta.
+ * (R$). Em cima a forma, no meio o resultado em destaque, embaixo as opções. `fromSoc` é a
+ * bateria de partida (a lida, ou a estimada) e `priceCentsKwh` o preço médio da janela já
+ * calculada, só pra traduzir o valor em energia e km.
  */
 function GoalPicker({
   vehicle,
@@ -160,57 +134,78 @@ function GoalPicker({
   onPick: (g: ChargeGoal) => void
 }) {
   const room = roomKwh(vehicle, fromSoc)
-  const reach = (kwh: number) => {
+  const fmtKm = (kwh: number) => {
     const km = kmFor(vehicle, kwh)
-    return km !== null ? `+${km} km` : `+${Math.round((kwh / vehicle.capacityKwh) * 100)}%`
+    return km !== null ? `+${km} km` : null
   }
+
+  let big: string
+  let sub: (string | null | undefined)[]
+  if (goal.kind === 'SOC') {
+    const km = rangeAt(vehicle, goal.value)
+    big = km !== null ? `${km} km` : `${goal.value}%`
+    sub = [km !== null ? `bateria em ${goal.value}%` : fmtKwh((goal.value / 100) * vehicle.capacityKwh), TARGET_USE[goal.value]]
+  } else if (goal.kind === 'KWH') {
+    const kwh = Math.min(goal.value, room)
+    big = `${goal.value} kWh`
+    sub = [fmtKm(kwh), `bateria até ${socAfter(vehicle, fromSoc, kwh)}%`]
+  } else {
+    const kwh = priceCentsKwh ? Math.min(room, goal.value / priceCentsKwh) : null
+    big = `R$ ${goal.value / 100}`
+    sub = kwh === null ? ['no máximo'] : kwh >= room - 0.5 ? ['enche a bateria'] : [`≈ ${fmtKwh(kwh, 1)}`, fmtKm(kwh)]
+  }
+
+  const options: { v: number; label: string; disabled?: boolean }[] =
+    goal.kind === 'SOC'
+      ? TARGETS.map((t) => ({ v: t, label: `${t}%`, disabled: !socEnabled.includes(t) }))
+      : goal.kind === 'KWH'
+        ? GOAL_OPTIONS.KWH.map((v) => ({ v, label: `${v} kWh`, disabled: v > room + 0.5 }))
+        : GOAL_OPTIONS.BRL.map((v) => ({ v, label: `R$ ${v / 100}` }))
+
   return (
-    <>
-      <div className="seg goal-seg" role="tablist" aria-label="Forma de pedir a carga">
-        {GOAL_KINDS.map((k: GoalKind) => (
+    <div className="goal">
+      <div className="goal-tabs" role="tablist" aria-label="Forma de pedir a carga">
+        {GOAL_KINDS.map((k) => (
           <button
             key={k}
             role="tab"
             aria-selected={goal.kind === k}
-            className={goal.kind === k ? 'on' : ''}
+            className={`goal-tab ${goal.kind === k ? 'on' : ''}`}
             onClick={() => goal.kind !== k && onPick({ kind: k, value: GOAL_DEFAULT[k] })}
           >
+            <span className="ic">{GOAL_ICON[k]}</span>
             {GOAL_KIND_LABEL[k]}
           </button>
         ))}
       </div>
-      {goal.kind === 'SOC' && (
-        <TargetChips vehicle={vehicle} active={goal.value} enabled={socEnabled} onPick={(t) => onPick({ kind: 'SOC', value: t })} />
-      )}
-      {goal.kind === 'KWH' && (
-        <div className="ask-targets" style={{ marginTop: 12, marginBottom: 0 }}>
-          {GOAL_OPTIONS.KWH.map((v) => (
-            <button
-              key={v}
-              className={`ask-target ${goal.value === v ? 'on' : ''}`}
-              disabled={v > room + 0.5}
-              onClick={() => onPick({ kind: 'KWH', value: v })}
-            >
-              <b>{v} kWh</b>
-              <span>{reach(v)}</span>
-            </button>
-          ))}
-        </div>
-      )}
-      {goal.kind === 'BRL' && (
-        <div className="ask-targets" style={{ marginTop: 12, marginBottom: 0 }}>
-          {GOAL_OPTIONS.BRL.map((v) => {
-            const kwh = priceCentsKwh ? Math.min(room, v / priceCentsKwh) : null
-            return (
-              <button key={v} className={`ask-target ${goal.value === v ? 'on' : ''}`} onClick={() => onPick({ kind: 'BRL', value: v })}>
-                <b>R$ {v / 100}</b>
-                <span>{kwh === null ? 'no máximo' : kwh >= room - 0.5 ? 'bateria cheia' : `~${reach(kwh).slice(1)}`}</span>
-              </button>
-            )
-          })}
-        </div>
-      )}
-    </>
+      <div className="goal-readout" aria-live="polite">
+        <div className="goal-big">{big}</div>
+        <div className="goal-sub">{sub.filter(Boolean).join(' · ')}</div>
+      </div>
+      <div className="goal-chips">
+        {options.map((o) => (
+          <button
+            key={o.v}
+            className={`goal-chip ${goal.value === o.v ? 'on' : ''}`}
+            disabled={o.disabled}
+            onClick={() => onPick({ kind: goal.kind, value: o.v })}
+          >
+            {o.label}
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+/** O custo estimado em destaque no topo do resumo, com a faixa de preço da janela. */
+function CostHero({ cents, level }: { cents: number; level: StartSlot['level'] }) {
+  return (
+    <div className="cost-hero">
+      <span className="k">Estimado</span>
+      <b className={`est ${level}`}>{fmtBRL(cents)}</b>
+      <span className={`cost-level ${level}`}>{LEVEL_LABEL[level].toLowerCase()}</span>
+    </div>
   )
 }
 
@@ -567,6 +562,7 @@ export default function Agendar({ go }: { go: (t: Tab) => void }) {
             )}
             {preview?.window && (
               <div className="confirm-summary">
+                <CostHero cents={preview.window.costCents} level={preview.window.level} />
                 <div className="row">
                   <span>Carga</span>
                   <b>
@@ -580,10 +576,6 @@ export default function Agendar({ go }: { go: (t: Tab) => void }) {
                     {fmtDay(preview.window.end)} às {preview.soc === null ? '~' : ''}
                     {fmtTime(preview.window.end)}
                   </b>
-                </div>
-                <div className="row">
-                  <span>Estimado</span>
-                  <b className={`est ${preview.window.level}`}>{fmtBRL(preview.window.costCents)}</b>
                 </div>
               </div>
             )}
@@ -783,6 +775,7 @@ export default function Agendar({ go }: { go: (t: Tab) => void }) {
                     </div>
                   )}
                   <div className="confirm-summary">
+                    {activeSlot.costCents !== null && <CostHero cents={activeSlot.costCents} level={activeSlot.level} />}
                     <div className="row">
                       <span>Local</span>
                       <b>{place.station.name}</b>
@@ -809,14 +802,6 @@ export default function Agendar({ go }: { go: (t: Tab) => void }) {
                         <b>
                           {fmtKwh(activeSlot.energyKwh)}
                           {kmFor(vehicle, activeSlot.energyKwh) !== null && ` · +${kmFor(vehicle, activeSlot.energyKwh)} km`}
-                        </b>
-                      </div>
-                    )}
-                    {activeSlot.costCents !== null && (
-                      <div className="row">
-                        <span>Estimado</span>
-                        <b className={`est ${activeSlot.level}`}>
-                          {fmtBRL(activeSlot.costCents)} ({LEVEL_LABEL[activeSlot.level].toLowerCase()})
                         </b>
                       </div>
                     )}

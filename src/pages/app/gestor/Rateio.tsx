@@ -5,6 +5,7 @@ import { csvMoney, downloadCsv } from '../../../lib/csv'
 import { api } from '../../../lib/http'
 import type { Cycle, CycleLine } from '../../../lib/types'
 import { useApi } from '../../../lib/useApi'
+import { I } from '../icons'
 import { Empty, ErrorBox, Loading } from '../ui'
 import { useAction } from '../../../lib/useAction'
 import FaturaDetalhe, { LineSplit } from './FaturaDetalhe'
@@ -146,8 +147,8 @@ export default function Rateio({ period, canWrite, goCobrancas }: { period: stri
         <div className="c-label row-between">
           Faturas por morador
           <span className="row-actions">
-          <button className="btn btn-ghost btn-sm" onClick={exportCsv} disabled={c.lines.length === 0}>
-            Exportar CSV
+          <button className="btn btn-ghost btn-sm btn-csv" onClick={exportCsv} disabled={c.lines.length === 0}>
+            {I.download} CSV
           </button>
           {canWrite && !hasPaid && !monthOpen && (
             <button className="btn btn-primary btn-sm" onClick={close} disabled={act.busy || billed.length === 0}>
