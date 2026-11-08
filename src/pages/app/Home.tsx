@@ -89,49 +89,67 @@ function LiveCharge({
  * Recibo de uma recarga: quando, quanto entrou, a tarifa e o multiplicador da hora, e a
  * ociosidade (minutos plugado depois da carga, se cobrados). Abre tocando na recarga.
  */
-function Receipt({ s }: { s: Session }) {
+const RCPT_LEVEL = { cheap: 'horário barato', mid: 'horário normal', peak: 'horário de pico' } as const
+
+/** Recibo de uma recarga: total, o que foi carregado e de onde vem cada parte do valor. */
+export function Receipt({ s }: { s: Session }) {
   const energyCharged = s.mult !== null && s.energyCostCents !== null ? Math.round(s.mult * s.energyCostCents) : null
   const idleCharged = s.chargedCents !== null && energyCharged !== null ? Math.max(0, s.chargedCents - energyCharged) : 0
-  const lines: { k: string; d?: string; v: string }[] = [
+  const lines: { k: string; d: string; v: string }[] = [
     {
       k: 'Energia',
       d:
         s.tariffBaseCentsKwh !== null && s.mult !== null
-          ? `${fmtKwh(s.energyKwh, 2)} × ${fmtBRL(s.tariffBaseCentsKwh)} × ${fmtMult(s.mult)}`
-          : fmtKwh(s.energyKwh, 2),
+          ? `${fmtKwh(s.energyKwh, 1)} × ${fmtBRL(s.tariffBaseCentsKwh)} × ${fmtMult(s.mult)}`
+          : fmtKwh(s.energyKwh, 1),
       v: energyCharged !== null ? fmtBRL(energyCharged) : '—',
     },
     ...(s.idleMin > 0
-      ? [{ k: 'Ociosidade', d: `${fmtMinutes(s.idleMin)} plugado depois da carga`, v: idleCharged > 0 ? fmtBRL(idleCharged) : 'R$ 0,00' }]
+      ? [{ k: 'Ocupação da vaga', d: `${fmtMinutes(s.idleMin)} plugado depois de carregar`, v: fmtBRL(idleCharged) }]
       : []),
   ]
   return (
     <div className="rcpt">
       <div className="rcpt-head">
+        <span className="rcpt-k">Total da recarga</span>
+        <span className="rcpt-total">{s.chargedCents !== null ? fmtBRL(s.chargedCents) : 'em cálculo'}</span>
+        <span className="rcpt-when">
+          {fmtDay(s.startedAt)}, {fmtTime(s.startedAt)}
+          {s.endedAt && ` às ${fmtTime(s.endedAt)}`}
+          {s.level && (
+            <span className={`cost-level ${s.level}`}>
+              <i />
+              {RCPT_LEVEL[s.level]}
+            </span>
+          )}
+        </span>
+      </div>
+      <div className="rcpt-facts">
         <div>
-          <div className="rcpt-k">Recibo</div>
-          <div className="rcpt-when">
-            {fmtDay(s.startedAt)} · {fmtTime(s.startedAt)}
-            {s.endedAt && ` às ${fmtTime(s.endedAt)}`}
-          </div>
+          <span>Energia</span>
+          <b>{fmtKwh(s.energyKwh, 1)}</b>
         </div>
-        <div className="rcpt-total">{s.chargedCents !== null ? fmtBRL(s.chargedCents) : 'em cálculo'}</div>
+        <div>
+          <span>Duração</span>
+          <b>{s.durationMin !== null ? fmtMinutes(s.durationMin) : '—'}</b>
+        </div>
+        <div>
+          <span>Tarifa</span>
+          <b>{s.mult !== null ? fmtMult(s.mult) : '—'}</b>
+        </div>
       </div>
       <div className="rcpt-lines">
         {lines.map((l) => (
           <div className="rcpt-line" key={l.k}>
             <div>
               <div className="t">{l.k}</div>
-              {l.d && <div className="d">{l.d}</div>}
+              <div className="d">{l.d}</div>
             </div>
             <b>{l.v}</b>
           </div>
         ))}
       </div>
-      <div className="rcpt-foot">
-        {s.level && <span className={`rcpt-tag ${s.level}`}>tarifa {LEVEL_LABEL[s.level].toLowerCase()}</span>}
-        <span>entra no rateio do mês</span>
-      </div>
+      <div className="rcpt-foot">Entra na fatura do mês da sua unidade.</div>
     </div>
   )
 }

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import ChargerMap from '../../components/ChargerMap'
+import PlacesMap from '../../components/PlacesMap'
 import VoltChat from '../../components/VoltChat'
 import { authClient } from '../../lib/authClient'
 import { directionsUrl, type ChargePoint } from '../../lib/chargePoints'
@@ -86,11 +86,8 @@ function Mapa({ go }: { go: (t: Tab) => void }) {
   return (
     <div className="screen-anim">
       <div className="screen-title">Onde carregar</div>
-      <div className="screen-sub">
-        O carregador do seu condomínio, outros condomínios da rede, os parceiros Chargefy e os pontos públicos por perto.
-      </div>
-      <ChargerMap
-        height={340}
+      <div className="screen-sub">Seu condomínio e os pontos da rede por perto.</div>
+      <PlacesMap
         // o superadmin entra em qualquer condomínio: todos aparecem como "seu"
         myWorkspaces={isSuperAdmin(me) ? undefined : me.memberships.map((m) => m.workspaceId)}
         activeWorkspaceId={active}
