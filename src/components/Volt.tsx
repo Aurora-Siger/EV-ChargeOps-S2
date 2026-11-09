@@ -1,3 +1,5 @@
+import { labels } from '../lib/i18n'
+
 type Props = {
   size?: number
   mood?: 'happy' | 'wink' | 'grin' | 'stern' | 'love'
@@ -9,15 +11,15 @@ type Props = {
 
 type Pose = 'feliz' | 'sorrindo' | 'piscando' | 'apaixonado' | 'atendente' | 'fiscal' | 'madrugada'
 
-const LABEL: Record<Pose, string> = {
-  feliz: 'Volt, o mascote',
-  sorrindo: 'Volt sorrindo',
-  piscando: 'Volt piscando',
-  apaixonado: 'Volt apaixonado',
-  atendente: 'Volt atendente',
-  fiscal: 'Volt fiscal',
-  madrugada: 'Volt de madrugada',
-}
+const LABEL: Record<Pose, string> = labels({
+  feliz: ['Volt, o mascote', 'Volt, the mascot'],
+  sorrindo: ['Volt sorrindo', 'Volt smiling'],
+  piscando: ['Volt piscando', 'Volt winking'],
+  apaixonado: ['Volt apaixonado', 'Volt in love'],
+  atendente: ['Volt atendente', 'Volt the assistant'],
+  fiscal: ['Volt fiscal', 'Volt the inspector'],
+  madrugada: ['Volt de madrugada', 'Volt at night'],
+})
 
 function pose({ mood = 'happy', headset, accessory }: Props): Pose {
   if (headset) return 'atendente'

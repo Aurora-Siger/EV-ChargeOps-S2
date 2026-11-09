@@ -1,5 +1,6 @@
 import Volt from '../../../components/Volt'
 import { fmtBRL, fmtKwh, fmtPct, monthName } from '../../../lib/format'
+import { t } from '../../../lib/i18n'
 import type { Overview } from '../../../lib/types'
 import { useApi } from '../../../lib/useApi'
 import { I } from '../icons'
@@ -23,51 +24,52 @@ export default function Geral({ period }: { period: string }) {
     <>
       <div className="kpi2">
         <div className="kpi">
-          <div className="k">Energia no mês</div>
+          <div className="k">{t('Energia no mês', 'Energy this month')}</div>
           <div className="v">{fmtKwh(o.energyKwh, 0)}</div>
           <div className={`d ${delta !== null && delta > 0 ? 'up' : ''}`}>
-            {delta === null ? `${o.sessionsCount} recargas` : `${delta >= 0 ? '▲' : '▼'} ${fmtPct(Math.abs(delta))} vs. mês anterior`}
+            {delta === null ? `${o.sessionsCount} ${t('recargas', 'charges')}` : `${delta >= 0 ? '▲' : '▼'} ${fmtPct(Math.abs(delta))} ${t('vs. mês anterior', 'vs. last month')}`}
           </div>
         </div>
         <div className="kpi">
-          <div className="k">{o.closed ? 'Faturado' : 'Rateio parcial'}</div>
+          <div className="k">{o.closed ? t('Faturado', 'Billed') : t('Rateio parcial', 'Partial split')}</div>
           <div className="v">{fmtBRL(o.billedCents)}</div>
-          <div className="d">{o.closed ? `${o.openInvoices} em aberto` : 'ciclo ainda aberto'}</div>
+          <div className="d">{o.closed ? `${o.openInvoices} ${t('em aberto', 'open')}` : t('ciclo ainda aberto', 'cycle still open')}</div>
         </div>
         <div className="kpi">
-          <div className="k">Moradores ativos</div>
+          <div className="k">{t('Moradores ativos', 'Active residents')}</div>
           <div className="v">{o.activeUsers}</div>
-          <div className="d">de {o.registeredUsers} cadastrados</div>
+          <div className="d">{t('de', 'of')} {o.registeredUsers} {t('cadastrados', 'registered')}</div>
         </div>
         <div className="kpi">
-          <div className="k">Energia no pico</div>
+          <div className="k">{t('Energia no pico', 'Peak energy')}</div>
           <div className="v">{fmtPct(o.peakShare)}</div>
-          <div className={`d ${o.peakShare >= 0.5 ? 'warn' : ''}`}>{o.peakShare >= 0.5 ? 'revisar demanda' : 'dos kWh do mês'}</div>
+          <div className={`d ${o.peakShare >= 0.5 ? 'warn' : ''}`}>{o.peakShare >= 0.5 ? t('revisar demanda', 'review demand') : t('dos kWh do mês', 'of the month’s kWh')}</div>
         </div>
       </div>
 
       <div className="volt-card">
         <Volt size={52} />
         <div className="bubble">
-          <div className="who">Resumo de {monthName(period)}</div>
+          <div className="who">{t('Resumo de', 'Summary for')} {monthName(period)}</div>
           <p>
-            O prédio consumiu <b>{fmtKwh(o.energyKwh)}</b> em {o.sessionsCount} {o.sessionsCount === 1 ? 'recarga' : 'recargas'}
+            {t('O prédio consumiu', 'The building used')} <b>{fmtKwh(o.energyKwh)}</b> {t('em', 'in')} {o.sessionsCount}{' '}
+            {o.sessionsCount === 1 ? t('recarga', 'charge') : t('recargas', 'charges')}
             {o.greenShare !== null && (
               <>
-                , <span className="good">{fmtPct(o.greenShare)} de energia solar</span>
+                , <span className="good">{fmtPct(o.greenShare)} {t('de energia solar', 'of solar energy')}</span>
               </>
             )}
             .{' '}
             {o.unassigned.count > 0
-              ? `${o.unassigned.count} ainda sem morador atribuído (${fmtKwh(o.unassigned.energyKwh)} fora do rateio).`
-              : 'Todas as recargas já têm morador.'}
+              ? t(`${o.unassigned.count} ainda sem morador atribuído (${fmtKwh(o.unassigned.energyKwh)} fora do rateio).`, `${o.unassigned.count} still without an assigned resident (${fmtKwh(o.unassigned.energyKwh)} outside the split).`)
+              : t('Todas as recargas já têm morador.', 'All charges already have a resident.')}
           </p>
         </div>
       </div>
 
       <div className="c">
-        <div className="c-label">Alertas</div>
-        {o.alerts.length === 0 && <div className="empty-inline">Nada fora do normal neste mês.</div>}
+        <div className="c-label">{t('Alertas', 'Alerts')}</div>
+        {o.alerts.length === 0 && <div className="empty-inline">{t('Nada fora do normal neste mês.', 'Nothing unusual this month.')}</div>}
         {o.alerts.map((a) => (
           <div className="act" key={a.title}>
             <div className="ic" style={TONE[a.tone].style}>

@@ -2,17 +2,18 @@ import type { ReactNode } from 'react'
 import { fmtBRL, fmtDay, fmtKwh, fmtTime } from '../../lib/format'
 import type { Reservation } from '../../lib/types'
 import { I } from './icons'
+import { locale, t } from '../../lib/i18n'
 
 const calPart = (iso: string, part: 'month' | 'day') =>
   new Date(iso)
-    .toLocaleDateString('pt-BR', part === 'month' ? { month: 'short', timeZone: 'America/Sao_Paulo' } : { day: '2-digit', timeZone: 'America/Sao_Paulo' })
+    .toLocaleDateString(locale(), part === 'month' ? { month: 'short', timeZone: 'America/Sao_Paulo' } : { day: '2-digit', timeZone: 'America/Sao_Paulo' })
     .replace('.', '')
 
 /** O que foi pedido: "meta 80%", "20,0 kWh" ou "até R$ 20,00". */
 export function goalLabel(r: Pick<Reservation, 'goal' | 'targetSoc' | 'energyKwh' | 'budgetCents'>) {
-  if (r.goal === 'BRL' && r.budgetCents != null) return `até ${fmtBRL(r.budgetCents)}`
+  if (r.goal === 'BRL' && r.budgetCents != null) return `${t('até', 'up to')} ${fmtBRL(r.budgetCents)}`
   if (r.goal === 'KWH' && r.energyKwh !== null) return fmtKwh(r.energyKwh)
-  return `meta ${r.targetSoc}%`
+  return `${t('meta', 'target')} ${r.targetSoc}%`
 }
 
 /** Card de uma reserva, igual no Início ("Sua próxima reserva") e em Agendar ("Minhas reservas"). */
@@ -22,8 +23,8 @@ export default function ReservationCard({ r, action }: { r: Reservation; action?
       <div className="resv">
         <div className="cal pending">{I.cal}</div>
         <div className="info">
-          <div className="t">Meta {r.targetSoc}% até {fmtDay(r.deadlineAt)} {fmtTime(r.deadlineAt)}</div>
-          <div className="s">aguardando o carro plugar pra escolher o horário</div>
+          <div className="t">{t('Meta', 'Target')} {r.targetSoc}% {t('até', 'by')} {fmtDay(r.deadlineAt)} {fmtTime(r.deadlineAt)}</div>
+          <div className="s">{t('aguardando o carro plugar pra escolher o horário', 'waiting for the car to plug in to pick the time')}</div>
         </div>
         {action}
       </div>
@@ -48,10 +49,10 @@ export default function ReservationCard({ r, action }: { r: Reservation; action?
         )}
         <div className="s">
           {r.startSoc !== null
-            ? `${r.startSoc}% → ${r.targetSoc}% · ${fmtKwh(r.energyKwh ?? 0)} · estimado ${fmtBRL(r.estimatedCostCents ?? 0)}`
+            ? `${r.startSoc}% → ${r.targetSoc}% · ${fmtKwh(r.energyKwh ?? 0)} · ${t('estimado', 'estimated')} ${fmtBRL(r.estimatedCostCents ?? 0)}`
             : r.stationKind === 'PARCEIRO'
-              ? `${goalLabel(r)} · estimado até ${fmtBRL(r.estimatedCostCents ?? 0)}`
-              : `${goalLabel(r)} · fim ajustado quando o carro plugar`}
+              ? `${goalLabel(r)} · ${t('estimado até', 'estimated up to')} ${fmtBRL(r.estimatedCostCents ?? 0)}`
+              : `${goalLabel(r)} · ${t('fim ajustado quando o carro plugar', 'end adjusted when the car plugs in')}`}
         </div>
       </div>
       {action}

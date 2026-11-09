@@ -1,3 +1,4 @@
+import { labels, t } from './i18n'
 /**
  * Cliente HTTP do app: mesma origem (cookie do Better Auth vai junto), JSON nos dois
  * sentidos, a mensagem de erro do backend (`{ error, message }`) propagada para a tela e o
@@ -13,12 +14,12 @@ export class ApiError extends Error {
   }
 }
 
-const FALLBACK: Record<number, string> = {
-  401: 'Sua sessão expirou. Entre de novo.',
-  403: 'Você não tem permissão para isso.',
-  404: 'Não encontrado.',
-  409: 'Conflito com um cadastro existente.',
-}
+const FALLBACK: Record<number, string> = labels({
+  401: ['Sua sessão expirou. Entre de novo.', 'Your session expired. Please sign in again.'],
+  403: ['Você não tem permissão para isso.', "You don't have permission to do that."],
+  404: ['Não encontrado.', 'Not found.'],
+  409: ['Conflito com um cadastro existente.', 'Conflicts with an existing record.'],
+})
 
 // ---------- condomínio ativo ----------
 // Escolhido no app (quem participa de mais de um, ou o superadmin) e lembrado neste navegador.
@@ -72,14 +73,15 @@ export async function api<T>(path: string, init: RequestInit & { json?: unknown 
       body = res.status === 204 ? null : await res.json().catch(() => null)
     }
   } catch {
-    throw new ApiError('Sem conexão com o servidor.', 0)
+    throw new ApiError(t('Sem conexão com o servidor.', 'No connection to the server.'), 0)
   }
   if (res.status === 204) return undefined as T
   if (!res.ok) {
     const issue = body?.issues?.[0]
     const message =
-      body?.message ?? (issue ? `${issue.path?.join('.') ?? ''} ${issue.message}`.trim() : null) ?? FALLBACK[res.status]
-    throw new ApiError(message ?? `Erro ${res.status}`, res.status, body?.error)
+      body?.message ?? (issue ? `${issue.path?.join('.') ?? ''} ${issue.message}`.trim() : null) ??
+      FALLBACK[res.status]
+    throw new ApiError(message ?? `${t('Erro', 'Error')} ${res.status}`, res.status, body?.error)
   }
   return body as T
 }

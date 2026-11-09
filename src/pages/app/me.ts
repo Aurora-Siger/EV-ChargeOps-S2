@@ -1,5 +1,6 @@
 import { createContext, useContext } from 'react'
 import type { AdminTitle, MemberKind, MemberRole, Me } from '../../lib/types'
+import { labels, t } from '../../lib/i18n'
 
 /* Usuário logado (/api/me), buscado uma vez pelo shell e compartilhado pelas telas. */
 
@@ -21,19 +22,19 @@ export const isSuperAdmin = (me: Me) => me.user.role === 'SUPER_ADMIN'
 /** Painel do gestor do condomínio ativo: superadmin ou síndico/subsíndico dele. */
 export const isStaff = (me: Me) => isSuperAdmin(me) || me.workspace?.memberRole === 'ADMIN'
 
-export const TITLE_LABEL: Record<AdminTitle, string> = { SINDICO: 'Síndico', SUBSINDICO: 'Subsíndico' }
+export const TITLE_LABEL: Record<AdminTitle, string> = labels({ SINDICO: ['Síndico', 'Building manager'], SUBSINDICO: ['Subsíndico', 'Deputy manager'] })
 
 /** "Síndico", "Morador", "Convidado"... papel de alguém num condomínio. */
 export function memberLabel(m: { role: MemberRole; adminTitle: AdminTitle | null; kind: MemberKind | null }) {
   if (m.role === 'ADMIN') return m.adminTitle ? TITLE_LABEL[m.adminTitle] : 'Admin'
-  return m.kind === 'CONVIDADO' ? 'Convidado' : 'Morador'
+  return m.kind === 'CONVIDADO' ? t('Convidado', 'Guest') : t('Morador', 'Resident')
 }
 
 /** Papel de quem está logado no condomínio ativo. */
 export function myRoleLabel(me: Me) {
   const ws = me.workspace
   if (ws?.memberRole) return memberLabel({ role: ws.memberRole, adminTitle: ws.adminTitle, kind: ws.kind })
-  return isSuperAdmin(me) ? 'Superadmin' : 'Sem condomínio'
+  return isSuperAdmin(me) ? 'Superadmin' : t('Sem condomínio', 'No building')
 }
 
 /** "Maria da Silva" → "MS" · "Administrador" → "AD" */

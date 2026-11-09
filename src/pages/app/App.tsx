@@ -1,3 +1,4 @@
+import LangToggle from '../../components/LangToggle'
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import PlacesMap from '../../components/PlacesMap'
@@ -20,6 +21,7 @@ import Perfil from './Perfil'
 import Sidebar from './Sidebar'
 import { ErrorBox, Field, Modal } from './ui'
 import { isStaff, isSuperAdmin, MeContext, useMe } from './me'
+import { t } from '../../lib/i18n'
 
 export type Tab = 'home' | 'agendar' | 'mapa' | 'fatura' | 'perfil'
 
@@ -50,17 +52,19 @@ function JoinModal({ point, onClose }: { point: ChargePoint; onClose: () => void
       onClose()
     })
   return (
-    <Modal title={`Pedir acesso · ${point.name}`} onClose={onClose}>
+    <Modal title={`${t('Pedir acesso', 'Request access')} · ${point.name}`} onClose={onClose}>
       <p className="modal-text">
-        O síndico do condomínio recebe seu pedido. Aprovado, você pode agendar recargas lá como convidado e paga só o
-        que carregar.
+        {t(
+          'O síndico do condomínio recebe seu pedido. Aprovado, você pode agendar recargas lá como convidado e paga só o que carregar.',
+          "The building manager gets your request. Once approved, you can book charges there as a guest and pay only for what you charge.",
+        )}
       </p>
-      <Field label="Mensagem para o síndico (opcional)">
+      <Field label={t('Mensagem para o síndico (opcional)', 'Message to the building manager (optional)')}>
         <textarea value={message} maxLength={300} rows={3} onChange={(e) => setMessage(e.target.value)} />
       </Field>
       {send.error && <div className="login-error">{send.error}</div>}
       <button className="btn btn-primary" onClick={submit} disabled={send.busy}>
-        {send.busy ? 'Enviando…' : 'Enviar pedido'}
+        {send.busy ? t('Enviando…', 'Sending…') : t('Enviar pedido', 'Send request')}
       </button>
     </Modal>
   )
@@ -73,9 +77,11 @@ function Mapa({ go }: { go: (t: Tab) => void }) {
   const pending = new Set(me.joinRequests.filter((r) => r.status === 'PENDING').map((r) => r.workspaceId))
 
   const label = (p: ChargePoint) => {
-    if (p.kind === 'seu') return !p.workspaceId || p.workspaceId === active ? 'Agendar recarga aqui' : 'Usar este condomínio'
-    if (p.kind === 'condominio') return pending.has(p.workspaceId ?? '') ? 'Pedido aguardando o síndico' : 'Pedir acesso'
-    return 'Como chegar'
+    if (p.kind === 'seu')
+      return !p.workspaceId || p.workspaceId === active ? t('Agendar recarga aqui', 'Book a charge here') : t('Usar este condomínio', 'Use this building')
+    if (p.kind === 'condominio')
+      return pending.has(p.workspaceId ?? '') ? t('Pedido aguardando o síndico', 'Request awaiting the manager') : t('Pedir acesso', 'Request access')
+    return t('Como chegar', 'Directions')
   }
   const choose = (p: ChargePoint) => {
     if (p.kind === 'seu') return !p.workspaceId || p.workspaceId === active ? go('agendar') : switchWorkspace(p.workspaceId)
@@ -85,8 +91,8 @@ function Mapa({ go }: { go: (t: Tab) => void }) {
 
   return (
     <div className="screen-anim">
-      <div className="screen-title">Onde carregar</div>
-      <div className="screen-sub">Seu condomínio e os pontos da rede por perto.</div>
+      <div className="screen-title">{t('Onde carregar', 'Where to charge')}</div>
+      <div className="screen-sub">{t('Seu condomínio e os pontos da rede por perto.', 'Your building and nearby network chargers.')}</div>
       <PlacesMap
         // o superadmin entra em qualquer condomínio: todos aparecem como "seu"
         myWorkspaces={isSuperAdmin(me) ? undefined : me.memberships.map((m) => m.workspaceId)}
@@ -123,7 +129,7 @@ function Shell({ onSwitchWorkspace }: { onSwitchWorkspace: (id: string) => void 
       if (error) throw error
       navigate('/app/home', { replace: true })
     } catch {
-      window.alert('Não foi possível sair agora. Verifique sua conexão e tente de novo.')
+      window.alert(t('Não foi possível sair agora. Verifique sua conexão e tente de novo.', "Couldn't sign out right now. Check your connection and try again."))
     } finally {
       setSaindo(false)
     }
@@ -173,6 +179,9 @@ function Shell({ onSwitchWorkspace }: { onSwitchWorkspace: (id: string) => void 
   return (
     <MeContext.Provider value={{ me: me.data, reloadMe: me.reload, switchWorkspace: onSwitchWorkspace }}>
       <div className="app-root">
+        <div className="theme-corner">
+          <LangToggle />
+        </div>
         <Sidebar
           me={me.data}
           onLogout={logout}
@@ -180,20 +189,20 @@ function Shell({ onSwitchWorkspace }: { onSwitchWorkspace: (id: string) => void 
           groups={[
             {
               id: 'morador',
-              label: 'Morador',
+              label: t('Morador', 'Resident'),
               items: [
-                { id: 'home', label: 'Início', icon: I.home, on: tab === 'home' && !gestor, onClick: () => go('home') },
-                { id: 'agendar', label: 'Agendar recarga', icon: I.cal, on: tab === 'agendar', onClick: () => go('agendar') },
-                { id: 'mapa', label: 'Onde carregar', icon: I.pin, on: tab === 'mapa', onClick: () => go('mapa') },
-                { id: 'fatura', label: 'Minha fatura', icon: I.bill, on: tab === 'fatura', onClick: () => go('fatura') },
-                { id: 'perfil', label: 'Perfil', icon: I.user, on: tab === 'perfil' && !gestor, onClick: () => go('perfil') },
+                { id: 'home', label: t('Início', 'Home'), icon: I.home, on: tab === 'home' && !gestor, onClick: () => go('home') },
+                { id: 'agendar', label: t('Agendar recarga', 'Book a charge'), icon: I.cal, on: tab === 'agendar', onClick: () => go('agendar') },
+                { id: 'mapa', label: t('Onde carregar', 'Where to charge'), icon: I.pin, on: tab === 'mapa', onClick: () => go('mapa') },
+                { id: 'fatura', label: t('Minha fatura', 'My bill'), icon: I.bill, on: tab === 'fatura', onClick: () => go('fatura') },
+                { id: 'perfil', label: t('Perfil', 'Profile'), icon: I.user, on: tab === 'perfil' && !gestor, onClick: () => go('perfil') },
               ],
             },
             ...(staff
               ? [
                   {
                     id: 'admin',
-                    label: 'Administração',
+                    label: t('Administração', 'Administration'),
                     items: GESTOR_SECTIONS.filter((sec) => !sec.superOnly || isSuperAdmin(me.data!)).map((sec) => ({
                       id: sec.id,
                       label: sec.label,
@@ -228,14 +237,14 @@ function Shell({ onSwitchWorkspace }: { onSwitchWorkspace: (id: string) => void 
             <nav className="bottom-nav">
               {(
                 [
-                  ['home', 'Início', I.home],
-                  ['agendar', 'Agendar', I.cal],
-                  ['mapa', 'Mapa', I.pin],
-                  ['fatura', 'Fatura', I.bill],
-                  ['perfil', 'Perfil', I.user],
+                  ['home', t('Início', 'Home'), I.home],
+                  ['agendar', t('Agendar', 'Book'), I.cal],
+                  ['mapa', t('Mapa', 'Map'), I.pin],
+                  ['fatura', t('Fatura', 'Bill'), I.bill],
+                  ['perfil', t('Perfil', 'Profile'), I.user],
                 ] as [Tab, string, React.ReactNode][]
-              ).map(([t, label, icon]) => (
-                <button key={t} className={`bn-item ${tab === t ? 'on' : ''}`} onClick={() => go(t)}>
+              ).map(([id, label, icon]) => (
+                <button key={id} className={`bn-item ${tab === id ? 'on' : ''}`} onClick={() => go(id)}>
                   {icon}
                   {label}
                 </button>

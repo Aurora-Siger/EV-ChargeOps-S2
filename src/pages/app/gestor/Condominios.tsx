@@ -5,6 +5,7 @@ import { useAction } from '../../../lib/useAction'
 import { useApi } from '../../../lib/useApi'
 import { TITLE_LABEL, useMe } from '../me'
 import { Empty, ErrorBox, Field, Loading, Modal } from '../ui'
+import { t } from '../../../lib/i18n'
 
 type Form = { name: string; address: string; sindicoName: string; sindicoEmail: string; sindicoPassword: string }
 const EMPTY: Form = { name: '', address: '', sindicoName: '', sindicoEmail: '', sindicoPassword: '' }
@@ -36,27 +37,27 @@ function WorkspaceModal({ ws, onClose, onSaved }: { ws: WorkspaceSummary | null;
   }
 
   return (
-    <Modal title={ws ? 'Editar condomínio' : 'Novo condomínio'} onClose={onClose}>
+    <Modal title={ws ? t('Editar condomínio', 'Edit building') : t('Novo condomínio', 'New building')} onClose={onClose}>
       <form onSubmit={save}>
-        <Field label="Nome">
+        <Field label={t('Nome', 'Name')}>
           <input value={f.name} onChange={set('name')} required placeholder="Residencial Bosque" />
         </Field>
-        <Field label="Endereço">
+        <Field label={t('Endereço', 'Address')}>
           <input value={f.address} onChange={set('address')} placeholder="Rua das Árvores, 10" />
         </Field>
         {!ws && (
           <>
             <div className="c-label" style={{ marginTop: 6 }}>
-              Síndico (opcional)
+              {t('Síndico (opcional)', 'Building manager (optional)')}
             </div>
-            <Field label="Nome do síndico">
+            <Field label={t('Nome do síndico', 'Building manager name')}>
               <input value={f.sindicoName} onChange={set('sindicoName')} required={!!withSindico} />
             </Field>
             <div className="form-2">
-              <Field label="E-mail">
+              <Field label={t('E-mail', 'Email')}>
                 <input type="email" value={f.sindicoEmail} onChange={set('sindicoEmail')} required={!!withSindico} />
               </Field>
-              <Field label="Senha inicial" hint="mínimo 8 caracteres">
+              <Field label={t('Senha inicial', 'Initial password')} hint={t('mínimo 8 caracteres', 'at least 8 characters')}>
                 <input
                   value={f.sindicoPassword}
                   onChange={set('sindicoPassword')}
@@ -70,7 +71,7 @@ function WorkspaceModal({ ws, onClose, onSaved }: { ws: WorkspaceSummary | null;
         )}
         {error && <div className="login-error">{error}</div>}
         <button className="btn btn-primary" disabled={busy}>
-          {busy ? 'Salvando…' : 'Salvar'}
+          {busy ? t('Salvando…', 'Saving…') : t('Salvar', 'Save')}
         </button>
       </form>
     </Modal>
@@ -90,8 +91,8 @@ export default function Condominios() {
 
   const setArchived = (w: WorkspaceSummary, archived: boolean) => {
     const msg = archived
-      ? `Arquivar ${w.name}? Ele some do mapa e ninguém de lá consegue usar o app nele. Nada é apagado e dá para reativar.`
-      : `Reativar ${w.name}?`
+      ? t(`Arquivar ${w.name}? Ele some do mapa e ninguém de lá consegue usar o app nele. Nada é apagado e dá para reativar.`, `Archive ${w.name}? It disappears from the map and nobody there can use the app. Nothing is deleted and you can reactivate it.`)
+      : t(`Reativar ${w.name}?`, `Reactivate ${w.name}?`)
     if (!confirm(msg)) return
     void act.run(async () => {
       await api(`/api/super/workspaces/${w.id}`, { method: 'PATCH', json: { archived } })
@@ -105,13 +106,13 @@ export default function Condominios() {
   return (
     <div className="c">
       <div className="c-label row-between">
-        {list.data?.length ?? 0} condomínios
+        {list.data?.length ?? 0} {t('condomínios', 'buildings')}
         <button className="btn btn-primary btn-sm" onClick={() => setEditing('new')}>
-          + Novo condomínio
+          + {t('Novo condomínio', 'New building')}
         </button>
       </div>
       {act.error && <div className="login-error">{act.error}</div>}
-      {list.data?.length === 0 && <Empty>Nenhum condomínio ainda.</Empty>}
+      {list.data?.length === 0 && <Empty>{t('Nenhum condomínio ainda.', 'No buildings yet.')}</Empty>}
       {list.data?.map((w) => {
         const active = w.id === me.workspace?.id
         const admins = w.admins.map((a) => `${a.title ? TITLE_LABEL[a.title] : 'Admin'}: ${a.name}`).join(' · ')
@@ -119,26 +120,26 @@ export default function Condominios() {
           <div className="act wrap" key={w.id}>
             <div className="info">
               <div className="t">
-                {w.name} {active && <small>(aberto)</small>}
+                {w.name} {active && <small>({t('aberto', 'open')})</small>}
               </div>
               <div className="s">
-                {w.address ?? 'sem endereço'} · {w.residents} {w.residents === 1 ? 'morador' : 'moradores'}
-                {w.guests > 0 && ` · ${w.guests} ${w.guests === 1 ? 'convidado' : 'convidados'}`}
-                {w.pendingRequests > 0 && ` · ${w.pendingRequests} pedido(s) aguardando`}
+                {w.address ?? t('sem endereço', 'no address')} · {w.residents} {w.residents === 1 ? t('morador', 'resident') : t('moradores', 'residents')}
+                {w.guests > 0 && ` · ${w.guests} ${w.guests === 1 ? t('convidado', 'guest') : t('convidados', 'guests')}`}
+                {w.pendingRequests > 0 && ` · ${w.pendingRequests} ${t('pedido(s) aguardando', 'request(s) waiting')}`}
               </div>
-              <div className="s">{admins || 'sem síndico cadastrado'}</div>
+              <div className="s">{admins || t('sem síndico cadastrado', 'no building manager registered')}</div>
             </div>
-            {w.archivedAt && <span className="ptag dim">Arquivado</span>}
+            {w.archivedAt && <span className="ptag dim">{t('Arquivado', 'Archived')}</span>}
             {!active && (
               <button className="btn btn-ghost btn-sm" onClick={() => switchWorkspace(w.id)}>
-                Abrir painel
+                {t('Abrir painel', 'Open dashboard')}
               </button>
             )}
             <button className="link-btn" onClick={() => setEditing(w)}>
-              editar
+              {t('editar', 'edit')}
             </button>
             <button className="link-btn danger" onClick={() => setArchived(w, !w.archivedAt)} disabled={act.busy}>
-              {w.archivedAt ? 'reativar' : 'arquivar'}
+              {w.archivedAt ? t('reativar', 'reactivate') : t('arquivar', 'archive')}
             </button>
           </div>
         )

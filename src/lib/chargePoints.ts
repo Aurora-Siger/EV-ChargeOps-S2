@@ -4,6 +4,7 @@
  * null e a tela mostra "—" em vez de inventar vagas.
  */
 import type { PriceLevel, Station, StationKind } from './types'
+import { labels, locale, t } from './i18n'
 
 /** `seu`: condomínio de que a pessoa participa; `condominio`: outro condomínio da rede (pede acesso). */
 export type PointKind = 'seu' | 'condominio' | 'parceiro' | 'publico'
@@ -56,12 +57,12 @@ export function toChargePoint(s: Station, mine?: ReadonlySet<string>): ChargePoi
   }
 }
 
-export const KIND_LABEL: Record<PointKind, string> = {
-  seu: 'Seu condomínio',
-  condominio: 'Condomínio da rede',
-  parceiro: 'Parceiro da rede',
-  publico: 'Público',
-}
+export const KIND_LABEL: Record<PointKind, string> = labels({
+  seu: ['Seu condomínio', 'Your building'],
+  condominio: ['Condomínio da rede', 'Network building'],
+  parceiro: ['Parceiro da rede', 'Network partner'],
+  publico: ['Público', 'Public'],
+})
 
 export const KIND_COLOR: Record<PointKind, string> = {
   seu: '#e8185a',
@@ -97,7 +98,7 @@ export function distanceKm(a: { lat: number; lon: number }, b: { lat: number; lo
 }
 
 export function fmtDistance(km: number) {
-  return km < 1 ? `${Math.round(km * 1000)} m` : `${km.toFixed(1)} km`
+  return km < 1 ? `${Math.round(km * 1000)} m` : `${km.toLocaleString(locale(), { maximumFractionDigits: 1, minimumFractionDigits: 1 })} km`
 }
 
 /** minutos a pé, ~4,5 km/h */
@@ -106,12 +107,12 @@ export function walkMinutes(km: number) {
 }
 
 export function fmtPrice(p: ChargePoint) {
-  return p.price === null ? '—' : `R$ ${p.price.toFixed(2).replace('.', ',')}`
+  return p.price === null ? '—' : `R$ ${p.price.toLocaleString(locale(), { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 }
 
 export function fmtFree(p: ChargePoint) {
   if (p.free === null) return '—'
-  return p.free === 0 ? 'ocupado' : `${p.free}/${p.total} livre`
+  return p.free === 0 ? t('ocupado', 'busy') : `${p.free}/${p.total} ${t('livre', 'free')}`
 }
 
 export function directionsUrl(p: ChargePoint) {

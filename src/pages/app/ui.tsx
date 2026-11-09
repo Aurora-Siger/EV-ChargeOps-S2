@@ -1,9 +1,10 @@
 import type { ReactNode } from 'react'
+import { locale, t } from '../../lib/i18n'
 
 /* ── estados de tela ── */
 
-export function Loading({ what = 'Carregando' }: { what?: string }) {
-  return <div className="empty-card">{what}…</div>
+export function Loading({ what }: { what?: string }) {
+  return <div className="empty-card">{what ?? t('Carregando', 'Loading')}…</div>
 }
 
 export function ErrorBox({ error, onRetry }: { error: string; onRetry?: () => void }) {
@@ -12,7 +13,7 @@ export function ErrorBox({ error, onRetry }: { error: string; onRetry?: () => vo
       {error}
       {onRetry && (
         <button className="link-btn" onClick={onRetry} style={{ marginLeft: 8 }}>
-          tentar de novo
+          {t('tentar de novo', 'try again')}
         </button>
       )}
     </div>
@@ -51,8 +52,8 @@ export function Modal({
       <div className={wide ? 'modal wide' : 'modal'} role="dialog" aria-label={title} onClick={(e) => e.stopPropagation()}>
         <div className="modal-head">
           <h3>{title}</h3>
-          <button className="link-btn" onClick={onClose} aria-label="Fechar">
-            fechar
+          <button className="link-btn" onClick={onClose} aria-label={t('Fechar', 'Close')}>
+            {t('fechar', 'close')}
           </button>
         </div>
         {children}
@@ -75,18 +76,18 @@ export function PlateChip({ plate }: { plate: string }) {
 /** Seletor de mês (ciclo de faturamento) com setas. */
 export function PeriodPicker({ period, onChange, max }: { period: string; onChange: (p: string) => void; max: string }) {
   const [y, m] = period.split('-').map(Number)
-  const label = new Date(Date.UTC(y, m - 1, 15)).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric', timeZone: 'UTC' })
+  const label = new Date(Date.UTC(y, m - 1, 15)).toLocaleDateString(locale(), { month: 'long', year: 'numeric', timeZone: 'UTC' })
   const shift = (d: number) => {
     const idx = y * 12 + (m - 1) + d
     return `${Math.floor(idx / 12)}-${String((idx % 12) + 1).padStart(2, '0')}`
   }
   return (
     <div className="period-picker">
-      <button onClick={() => onChange(shift(-1))} aria-label="Mês anterior">
+      <button onClick={() => onChange(shift(-1))} aria-label={t('Mês anterior', 'Previous month')}>
         ‹
       </button>
       <span>{label}</span>
-      <button onClick={() => onChange(shift(1))} disabled={period >= max} aria-label="Próximo mês">
+      <button onClick={() => onChange(shift(1))} disabled={period >= max} aria-label={t('Próximo mês', 'Next month')}>
         ›
       </button>
     </div>

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
+import { t } from '../../../lib/i18n'
 
 interface MapPickerProps {
   lat: number | null
@@ -52,7 +53,7 @@ export function MapPicker({ lat, lon, onSelect }: MapPickerProps) {
         className="btn btn-sm"
         onClick={() => setShowMap(!showMap)}
       >
-        {showMap ? '✕ Fechar mapa' : '📍 Abrir mapa'}
+        {showMap ? `✕ ${t('Fechar mapa', 'Close map')}` : `📍 ${t('Abrir mapa', 'Open map')}`}
       </button>
 
       {showMap && (

@@ -10,6 +10,7 @@ import {
 } from '../lib/chargePoints'
 import { useChargePoints } from '../lib/chargePointsHook'
 import { createBaseMap } from '../lib/leafletBase'
+import { locale, t } from '../lib/i18n'
 
 /**
  * "Onde carregar" do app: mapa limpo em cima e a lista de pontos embaixo, do mais perto ao mais
@@ -18,11 +19,11 @@ import { createBaseMap } from '../lib/leafletBase'
 
 type Filter = 'todos' | Exclude<PointKind, 'seu'>
 
-const FILTERS: { id: Filter; label: string }[] = [
-  { id: 'todos', label: 'Todos' },
-  { id: 'condominio', label: 'Condomínios' },
-  { id: 'parceiro', label: 'Parceiros' },
-  { id: 'publico', label: 'Públicos' },
+const filterOptions = (): { id: Filter; label: string }[] => [
+  { id: 'todos', label: t('Todos', 'All') },
+  { id: 'condominio', label: t('Condomínios', 'Buildings') },
+  { id: 'parceiro', label: t('Parceiros', 'Partners') },
+  { id: 'publico', label: t('Públicos', 'Public') },
 ]
 
 const pinIcon = (p: ChargePoint, on: boolean) =>
@@ -33,11 +34,14 @@ const pinIcon = (p: ChargePoint, on: boolean) =>
     iconAnchor: [14, 14],
   })
 
-const priceOf = (p: ChargePoint) => (p.price === null ? null : `R$ ${p.price.toFixed(2).replace('.', ',')}`)
+const priceOf = (p: ChargePoint) =>
+  p.price === null ? null : `R$ ${p.price.toLocaleString(locale(), { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 
 function availability(p: ChargePoint) {
   if (p.free === null) return null
-  return p.free === 0 ? { text: 'Ocupado', cls: 'busy' } : { text: p.total > 1 ? `${p.free} de ${p.total} livres` : 'Livre', cls: 'free' }
+  return p.free === 0
+    ? { text: t('Ocupado', 'Busy'), cls: 'busy' }
+    : { text: p.total > 1 ? `${p.free} ${t('de', 'of')} ${p.total} ${t('livres', 'free')}` : t('Livre', 'Free'), cls: 'free' }
 }
 
 type Props = {
@@ -70,7 +74,7 @@ export default function PlacesMap({ onChoose, chooseLabel, myWorkspaces, activeW
       .sort((a, b) => (a.kind === 'seu' ? -1 : b.kind === 'seu' ? 1 : a.km - b.km))
   }, [points, filter, center])
   const kinds = new Set(points.map((p) => p.kind))
-  const filters = FILTERS.filter((f) => f.id === 'todos' || kinds.has(f.id))
+  const filters = filterOptions().filter((f) => f.id === 'todos' || kinds.has(f.id))
 
   useEffect(() => {
     if (!mapEl.current || !center) return
@@ -110,7 +114,11 @@ export default function PlacesMap({ onChoose, chooseLabel, myWorkspaces, activeW
   }
 
   if (points.length === 0) {
-    return <div className="empty-card">{loading ? 'Carregando pontos de recarga…' : 'Nenhum ponto de recarga cadastrado ainda.'}</div>
+    return (
+      <div className="empty-card">
+        {loading ? t('Carregando pontos de recarga…', 'Loading charging points…') : t('Nenhum ponto de recarga cadastrado ainda.', 'No charging points registered yet.')}
+      </div>
+    )
   }
 
   return (
@@ -155,16 +163,16 @@ export default function PlacesMap({ onChoose, chooseLabel, myWorkspaces, activeW
                   {p.address && <div className="pm-addr">{p.address}</div>}
                   <div className="pm-facts">
                     <div>
-                      <span>Potência</span>
+                      <span>{t('Potência', 'Power')}</span>
                       <b>{p.power} kW</b>
                     </div>
                     <div>
-                      <span>Horário</span>
+                      <span>{t('Horário', 'Hours')}</span>
                       <b>{p.hours ?? '—'}</b>
                     </div>
                     <div>
-                      <span>Tarifa</span>
-                      <b>{p.kind === 'seu' || p.kind === 'condominio' ? 'por horário' : 'fixa'}</b>
+                      <span>{t('Tarifa', 'Rate')}</span>
+                      <b>{p.kind === 'seu' || p.kind === 'condominio' ? t('por horário', 'by time') : t('fixa', 'fixed')}</b>
                     </div>
                   </div>
                   <button className="btn btn-primary btn-sm pm-cta" onClick={() => onChoose(p)}>

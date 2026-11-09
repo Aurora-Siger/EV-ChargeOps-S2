@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { currentPeriod } from '../../../lib/format'
+import { t } from '../../../lib/i18n'
 import { I } from '../icons'
 import { PeriodPicker } from '../ui'
 import { isSuperAdmin, myRoleLabel, useMe } from '../me'
@@ -45,12 +46,12 @@ export default function Gestor({ section: requested, onSection, back }: { sectio
   return (
     <div className="screen-anim">
       <button className="back-btn hide-desk" onClick={back}>
-        {I.back} Voltar ao perfil
+        {I.back} {t('Voltar ao perfil', 'Back to profile')}
       </button>
-      <div className="screen-title">Painel do gestor</div>
+      <div className="screen-title">{t('Painel do gestor', 'Manager dashboard')}</div>
       <div className="screen-sub">
-        {me.workspace?.name ?? 'Nenhum condomínio aberto'} · {myRoleLabel(me).toLowerCase()}
-        {me.workspace?.archived && ' · arquivado'}
+        {me.workspace?.name ?? t('Nenhum condomínio aberto', 'No building open')} · {myRoleLabel(me).toLowerCase()}
+        {me.workspace?.archived && ` · ${t('arquivado', 'archived')}`}
       </div>
 
       <div className="gestor-tabs">

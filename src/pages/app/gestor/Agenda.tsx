@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import { fmtBRL, fmtDateTime, fmtDay, fmtKwh, fmtMinutes, fmtTime, fromLocal, LEVEL_LABEL, local, WEEKDAYS } from '../../../lib/format'
+import { fmtBRL, fmtDateTime, fmtDay, fmtKwh, fmtMinutes, fmtNum, fmtTime, fromLocal, LEVEL_LABEL, local, WEEKDAYS } from '../../../lib/format'
+import { isEn, list, t } from '../../../lib/i18n'
 import { api } from '../../../lib/http'
 import type { Agenda as AgendaData, AgendaReservation, AgendaSession, PriceLevel } from '../../../lib/types'
 import { useAction } from '../../../lib/useAction'
@@ -18,7 +19,10 @@ import { ErrorBox, Loading, Modal, PlateChip } from '../ui'
 
 const HOUR_PX = 44
 const DAY_MS = 86_400_000
-const MONTHS_SHORT = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez']
+const MONTHS_SHORT = list(
+  ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'],
+  ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
+)
 /** Uma cor por carregador (só faz diferença em condomínio com mais de um). */
 const CHARGER_COLORS = ['#e8185a', '#34d399', '#60a5fa', '#fbbf24', '#a78bfa', '#f472b6']
 
@@ -109,23 +113,31 @@ function windowLevel(prices: Map<number, PriceLevel>, start: Date, end: Date): P
 type Status = { label: string; cls: string; done?: boolean }
 
 function statusOf(r: AgendaReservation, now: Date, real?: AgendaSession): Status {
-  if (r.status === 'CANCELLED') return { label: 'Cancelada', cls: 'cancelled' }
-  if (r.status === 'EXPIRED') return { label: 'Expirada', cls: 'cancelled' }
-  if (real && !real.endedAt) return { label: 'Carregando', cls: 'live' }
+  if (r.status === 'CANCELLED') return { label: t('Cancelada', 'Cancelled'), cls: 'cancelled' }
+  if (r.status === 'EXPIRED') return { label: t('Expirada', 'Expired'), cls: 'cancelled' }
+  if (real && !real.endedAt) return { label: t('Carregando', 'Charging'), cls: 'live' }
   if (new Date(r.endsAt!) <= now)
-    return real ? { label: 'Realizada', cls: 'done', done: true } : { label: 'Não realizada', cls: 'missed' }
-  if (real) return { label: 'Realizada', cls: 'done', done: true }
-  if (new Date(r.occupiedFromAt ?? r.startsAt!) <= now) return { label: 'Em andamento', cls: 'live' }
-  return { label: 'Agendada', cls: '' }
+    return real
+      ? { label: t('Realizada', 'Completed'), cls: 'done', done: true }
+      : { label: t('Não realizada', 'Missed'), cls: 'missed' }
+  if (real) return { label: t('Realizada', 'Completed'), cls: 'done', done: true }
+  if (new Date(r.occupiedFromAt ?? r.startsAt!) <= now) return { label: t('Em andamento', 'In progress'), cls: 'live' }
+  return { label: t('Agendada', 'Booked'), cls: '' }
 }
 
 function rangeLabel(view: View, days: Date[]) {
   if (view === 'day') {
     const l = local(days[0]!)
-    return `${WEEKDAYS[l.weekday]}, ${l.day} de ${MONTHS_SHORT[l.month - 1]} de ${l.year}`
+    return isEn()
+      ? `${WEEKDAYS[l.weekday]}, ${MONTHS_SHORT[l.month - 1]} ${l.day}, ${l.year}`
+      : `${WEEKDAYS[l.weekday]}, ${l.day} de ${MONTHS_SHORT[l.month - 1]} de ${l.year}`
   }
   const a = local(days[0]!)
   const b = local(days[6]!)
+  if (isEn()) {
+    if (a.month === b.month) return `${MONTHS_SHORT[a.month - 1]} ${a.day}–${b.day}, ${a.year}`
+    return `${MONTHS_SHORT[a.month - 1]} ${a.day} – ${MONTHS_SHORT[b.month - 1]} ${b.day}, ${b.year}`
+  }
   if (a.month === b.month) return `${a.day} – ${b.day} de ${MONTHS_SHORT[a.month - 1]} de ${a.year}`
   return `${a.day} ${MONTHS_SHORT[a.month - 1]} – ${b.day} ${MONTHS_SHORT[b.month - 1]} ${b.year}`
 }
@@ -159,70 +171,70 @@ function Detail({
     })
 
   return (
-    <Modal title="Agendamento" onClose={onClose}>
+    <Modal title={t('Agendamento', 'Booking')} onClose={onClose}>
       <div className="ag-detail-head">
         <span className="ag-dot" style={{ background: color }} />
         <div>
           <div className="ag-detail-who">
             {r.userName}
-            {r.memberKind === 'CONVIDADO' && <span className="ag-tag">convidado</span>}
+            {r.memberKind === 'CONVIDADO' && <span className="ag-tag">{t('convidado', 'guest')}</span>}
           </div>
-          <div className="ag-detail-sub">{r.unitLabel ?? 'sem unidade'} · {chargerName}</div>
+          <div className="ag-detail-sub">{r.unitLabel ?? t('sem unidade', 'no unit')} · {chargerName}</div>
         </div>
         <span className={`ag-status ${st.cls}`}>{st.label}</span>
       </div>
       <dl className="ag-kv">
-        <dt>Janela de carga</dt>
+        <dt>{t('Janela de carga', 'Charging window')}</dt>
         <dd>
           {fmtDay(r.startsAt!)} · {fmtTime(r.startsAt!)} – {fmtTime(r.endsAt!)}
           {local(r.startsAt!).day !== local(r.endsAt!).day && ` (${fmtDay(r.endsAt!)})`}
         </dd>
         {st.cls !== 'cancelled' && new Date(r.occupiedFromAt ?? r.startsAt!) <= now && (
           <>
-            <dt>Recarga real (SEMS)</dt>
+            <dt>{t('Recarga real (SEMS)', 'Actual charge (SEMS)')}</dt>
             <dd>
               {real
-                ? `${fmtTime(real.startedAt)} – ${real.endedAt ? fmtTime(real.endedAt) : 'agora'} · ${fmtKwh(real.energyKwh)}`
-                : 'nenhuma sessão na janela'}
+                ? `${fmtTime(real.startedAt)} – ${real.endedAt ? fmtTime(real.endedAt) : t('agora', 'now')} · ${fmtKwh(real.energyKwh)}`
+                : t('nenhuma sessão na janela', 'no session in the window')}
             </dd>
             {real && real.idleMin > 0 && (
               <>
-                <dt>Ociosidade</dt>
-                <dd>{fmtMinutes(real.idleMin)} plugado depois da carga</dd>
+                <dt>{t('Ociosidade', 'Idle time')}</dt>
+                <dd>{fmtMinutes(real.idleMin)} {t('plugado depois da carga', 'plugged in after charging')}</dd>
               </>
             )}
           </>
         )}
         {r.occupiedFromAt && (
           <>
-            <dt>Carregador ocupado desde</dt>
-            <dd>{fmtDateTime(r.occupiedFromAt)} (carro já plugado)</dd>
+            <dt>{t('Carregador ocupado desde', 'Charger occupied since')}</dt>
+            <dd>{fmtDateTime(r.occupiedFromAt)} ({t('carro já plugado', 'car already plugged in')})</dd>
           </>
         )}
-        <dt>Carro</dt>
+        <dt>{t('Carro', 'Car')}</dt>
         <dd className="ag-car">
           {r.vehicleModel ?? '—'}
           {r.vehiclePlate && <PlateChip plate={r.vehiclePlate} />}
         </dd>
-        <dt>Bateria</dt>
+        <dt>{t('Bateria', 'Battery')}</dt>
         <dd>
-          {r.startSoc !== null ? `${r.startSoc}%` : '20% (estimado)'} → {r.targetSoc}%
+          {r.startSoc !== null ? `${r.startSoc}%` : t('20% (estimado)', '20% (estimated)')} → {r.targetSoc}%
         </dd>
-        <dt>Energia prevista</dt>
+        <dt>{t('Energia prevista', 'Expected energy')}</dt>
         <dd>{r.energyKwh !== null ? fmtKwh(r.energyKwh) : '—'}</dd>
-        <dt>Custo estimado</dt>
+        <dt>{t('Custo estimado', 'Estimated cost')}</dt>
         <dd>{r.estimatedCostCents !== null ? fmtBRL(r.estimatedCostCents) : '—'}</dd>
         {level && (
           <>
-            <dt>Faixa de preço</dt>
+            <dt>{t('Faixa de preço', 'Price band')}</dt>
             <dd>
               <span className={`ptag ${level}`}>{LEVEL_LABEL[level]}</span>
             </dd>
           </>
         )}
-        <dt>Pronto até</dt>
+        <dt>{t('Pronto até', 'Ready by')}</dt>
         <dd>{fmtDateTime(r.deadlineAt)}</dd>
-        <dt>Criada em</dt>
+        <dt>{t('Criada em', 'Created on')}</dt>
         <dd>{fmtDateTime(r.createdAt)}</dd>
       </dl>
       {act.error && <div className="login-error">{act.error}</div>}
@@ -230,17 +242,17 @@ function Detail({
         <div className="ag-detail-actions">
           {confirming ? (
             <>
-              <span className="hint-line">Cancelar a reserva de {r.userName.split(' ')[0]}?</span>
+              <span className="hint-line">{t('Cancelar a reserva de', 'Cancel the booking for')} {r.userName.split(' ')[0]}?</span>
               <button className="btn btn-ghost btn-sm" onClick={() => setConfirming(false)} disabled={act.busy}>
-                Manter
+                {t('Manter', 'Keep')}
               </button>
               <button className="btn btn-primary btn-sm" onClick={cancel} disabled={act.busy}>
-                {act.busy ? 'Cancelando…' : 'Sim, cancelar'}
+                {act.busy ? t('Cancelando…', 'Cancelling…') : t('Sim, cancelar', 'Yes, cancel')}
               </button>
             </>
           ) : (
             <button className="link-btn danger" onClick={() => setConfirming(true)}>
-              Cancelar reserva
+              {t('Cancelar reserva', 'Cancel booking')}
             </button>
           )}
         </div>
@@ -265,49 +277,49 @@ function SessionDetail({
   const end = s.endedAt ? new Date(s.endedAt) : null
   const minutes = s.durationMin ?? Math.round(((end ?? new Date()).getTime() - new Date(s.startedAt).getTime()) / 60_000)
   return (
-    <Modal title="Sessão realizada" onClose={onClose}>
+    <Modal title={t('Sessão realizada', 'Completed session')} onClose={onClose}>
       <div className="ag-detail-head">
         <span className="ag-dot" style={{ background: 'var(--text3)' }} />
         <div>
-          <div className="ag-detail-who">{s.userName ?? 'Sem morador atribuído'}</div>
-          <div className="ag-detail-sub">{s.unitLabel ?? 'sem unidade'} · {chargerName}</div>
+          <div className="ag-detail-who">{s.userName ?? t('Sem morador atribuído', 'No resident assigned')}</div>
+          <div className="ag-detail-sub">{s.unitLabel ?? t('sem unidade', 'no unit')} · {chargerName}</div>
         </div>
-        <span className={`ag-status ${end ? 'done' : 'live'}`}>{end ? 'Realizada' : 'Carregando'}</span>
+        <span className={`ag-status ${end ? 'done' : 'live'}`}>{end ? t('Realizada', 'Completed') : t('Carregando', 'Charging')}</span>
       </div>
       <dl className="ag-kv">
-        <dt>Horário</dt>
+        <dt>{t('Horário', 'Time')}</dt>
         <dd>
-          {fmtDay(s.startedAt)} · {fmtTime(s.startedAt)} – {end ? fmtTime(end) : 'agora'}
+          {fmtDay(s.startedAt)} · {fmtTime(s.startedAt)} – {end ? fmtTime(end) : t('agora', 'now')}
           {end && local(s.startedAt).day !== local(end).day && ` (${fmtDay(end)})`}
         </dd>
-        <dt>Duração</dt>
+        <dt>{t('Duração', 'Duration')}</dt>
         <dd>{fmtMinutes(minutes)}</dd>
-        <dt>Energia</dt>
+        <dt>{t('Energia', 'Energy')}</dt>
         <dd>{fmtKwh(s.energyKwh)}</dd>
         {s.idleMin > 0 && (
           <>
-            <dt>Ociosidade</dt>
-            <dd>{fmtMinutes(s.idleMin)} plugado sem carregar</dd>
+            <dt>{t('Ociosidade', 'Idle time')}</dt>
+            <dd>{fmtMinutes(s.idleMin)} {t('plugado sem carregar', 'plugged in, not charging')}</dd>
           </>
         )}
-        <dt>Valor cobrado</dt>
+        <dt>{t('Valor cobrado', 'Amount charged')}</dt>
         <dd>{s.chargedCents !== null ? fmtBRL(s.chargedCents) : '—'}</dd>
         {s.level && (
           <>
-            <dt>Faixa de preço</dt>
+            <dt>{t('Faixa de preço', 'Price band')}</dt>
             <dd>
               <span className={`ptag ${s.level}`}>{LEVEL_LABEL[s.level]}</span>
             </dd>
           </>
         )}
-        <dt>Agendamento</dt>
+        <dt>{t('Agendamento', 'Booking')}</dt>
         <dd>
           {booked ? (
             <button className="link-btn" onClick={onOpenReservation}>
-              {fmtTime(booked.startsAt!)} – {fmtTime(booked.endsAt!)} · ver
+              {fmtTime(booked.startsAt!)} – {fmtTime(booked.endsAt!)} · {t('ver', 'view')}
             </button>
           ) : (
-            'avulsa (sem agendamento)'
+            t('avulsa (sem agendamento)', 'walk-in (no booking)')
           )}
         </dd>
       </dl>
@@ -455,46 +467,46 @@ export default function Agenda() {
       <div className="ag-toolbar">
         <div className="ag-nav">
           <button className="btn btn-ghost ag-today" onClick={() => setAnchor(ymdOf(new Date()))}>
-            Hoje
+            {t('Hoje', 'Today')}
           </button>
-          <button className="ag-arrow" onClick={() => step(-1)} aria-label="Anterior">
+          <button className="ag-arrow" onClick={() => step(-1)} aria-label={t('Anterior', 'Previous')}>
             <span style={{ display: 'inline-flex', transform: 'rotate(180deg)' }}>{I.chevR}</span>
           </button>
-          <button className="ag-arrow" onClick={() => step(1)} aria-label="Próximo">
+          <button className="ag-arrow" onClick={() => step(1)} aria-label={t('Próximo', 'Next')}>
             {I.chevR}
           </button>
           <span className="ag-range">{rangeLabel(view, days)}</span>
         </div>
         <span className="seg ag-seg">
           <button className={view === 'day' ? 'on' : ''} onClick={() => setView('day')}>
-            Dia
+            {t('Dia', 'Day')}
           </button>
           <button className={view === 'week' ? 'on' : ''} onClick={() => setView('week')}>
-            Semana
+            {t('Semana', 'Week')}
           </button>
         </span>
       </div>
 
       <div className="ag-summary">
         <span>
-          <b>{active.length}</b> {active.length === 1 ? 'agendamento' : 'agendamentos'} · <b>{fmtKwh(kwh)}</b> ·{' '}
-          <b>{fmtBRL(cents)}</b> estimados
+          <b>{active.length}</b> {active.length === 1 ? t('agendamento', 'booking') : t('agendamentos', 'bookings')} · <b>{fmtKwh(kwh)}</b> ·{' '}
+          <b>{fmtBRL(cents)}</b> {t('estimados', 'estimated')}
         </span>
         {finished.length > 0 && (
           <span>
             <b>
               {done} de {finished.length}
             </b>{' '}
-            realizados
+            {t('realizados', 'completed')}
           </span>
         )}
         {walkIns > 0 && (
           <span>
-            <b>{walkIns}</b> {walkIns === 1 ? 'recarga avulsa' : 'recargas avulsas'}
+            <b>{walkIns}</b> {walkIns === 1 ? t('recarga avulsa', 'walk-in charge') : t('recargas avulsas', 'walk-in charges')}
           </span>
         )}
         <span>
-          <b>{fmtKwh(realKwh)}</b> carregados
+          <b>{fmtKwh(realKwh)}</b> {t('carregados', 'charged')}
         </span>
       </div>
 
@@ -510,7 +522,7 @@ export default function Agenda() {
       )}
 
       {error && <ErrorBox error={error} onRetry={reload} />}
-      {loading && !data && <Loading what="Montando a agenda" />}
+      {loading && !data && <Loading what={t('Montando a agenda', 'Building the schedule')} />}
 
       <div className={`ag-grid-wrap ${view}`}>
         <div className="ag-head" style={{ gridTemplateColumns: `48px repeat(${nDays}, minmax(0, 1fr))` }}>
@@ -549,15 +561,15 @@ export default function Agenda() {
               <div key={d0.toISOString()} className={`ag-col ${isToday(d0) ? 'today' : ''}`}>
                 {data?.prices
                     .filter((p) => {
-                      const t = new Date(p.at).getTime()
-                      return t >= d0.getTime() && t < d0.getTime() + DAY_MS
+                      const at = new Date(p.at).getTime()
+                      return at >= d0.getTime() && at < d0.getTime() + DAY_MS
                     })
                     .map((p) => (
                       <div
                         key={p.at}
                         className={`ag-price ${p.level}`}
                         style={{ top: minutesInto(new Date(p.at), d0) * (HOUR_PX / 60), height: HOUR_PX }}
-                        title={`${fmtTime(p.at)} · ${LEVEL_LABEL[p.level]} · R$ ${(p.priceCentsKwh / 100).toFixed(2).replace('.', ',')}/kWh`}
+                        title={`${fmtTime(p.at)} · ${LEVEL_LABEL[p.level]} · R$ ${fmtNum(p.priceCentsKwh / 100, 2)}/kWh`}
                       />
                     ))}
                 {perDay[i]!.map((b) => {
@@ -580,23 +592,23 @@ export default function Agenda() {
                         className={`ag-ev ses ${s.endedAt ? '' : 'live'} ${cont}`}
                         style={box}
                         onClick={() => setOpenSes(s.id)}
-                        title={`Sessão realizada · ${s.userName ?? 'sem morador'} · ${fmtTime(s.startedAt)}–${s.endedAt ? fmtTime(s.endedAt) : 'agora'} · ${fmtKwh(s.energyKwh)}`}
+                        title={`${t('Sessão realizada', 'Completed session')} · ${s.userName ?? t('sem morador', 'no resident')} · ${fmtTime(s.startedAt)}–${s.endedAt ? fmtTime(s.endedAt) : t('agora', 'now')} · ${fmtKwh(s.energyKwh)}`}
                       >
                         <span className="ag-ev-body">
                           <span className="t">
                             <span className="ag-ok">{I.bolt}</span>
-                            {fmtTime(s.startedAt)} – {s.endedAt ? fmtTime(s.endedAt) : 'agora'}
+                            {fmtTime(s.startedAt)} – {s.endedAt ? fmtTime(s.endedAt) : t('agora', 'now')}
                           </span>
                           {h >= 34 && (
                             <span className="n">
                               {s.unitLabel && !narrow ? `${s.unitLabel} · ` : ''}
-                              {s.userName ? (view === 'week' ? s.userName.split(' ')[0] : s.userName) : 'sem morador'}
+                              {s.userName ? (view === 'week' ? s.userName.split(' ')[0] : s.userName) : t('sem morador', 'no resident')}
                             </span>
                           )}
                           {h >= 58 && (
                             <span className="p">
                               {fmtKwh(s.energyKwh)}
-                              {!booked && ' · avulsa'}
+                              {!booked && ` · ${t('avulsa', 'walk-in')}`}
                             </span>
                           )}
                         </span>
@@ -628,9 +640,9 @@ export default function Agenda() {
                         {h >= 58 && (
                           <span className="p">
                             {realOf.get(b.r.id)
-                              ? `${fmtKwh(realOf.get(b.r.id)!.energyKwh)} carregados`
+                              ? `${fmtKwh(realOf.get(b.r.id)!.energyKwh)} ${t('carregados', 'charged')}`
                               : b.r.energyKwh !== null
-                                ? `${fmtKwh(b.r.energyKwh)} previstos`
+                                ? `${fmtKwh(b.r.energyKwh)} ${t('previstos', 'expected')}`
                                 : ''}
                           </span>
                         )}
@@ -650,29 +662,29 @@ export default function Agenda() {
           <>
             <span>
               <span className="sw ag-sw-cheap" />
-              hora barata
+              {t('hora barata', 'cheap hour')}
             </span>
             <span>
               <span className="sw ag-sw-mid" />
-              normal
+              {t('normal', 'normal')}
             </span>
             <span>
               <span className="sw ag-sw-peak" />
-              pico
+              {t('pico', 'peak')}
             </span>
           </>
         )}
         <span>
           <span className="sw" style={{ background: 'var(--pink)' }} />
-          agendamento
+          {t('agendamento', 'booking')}
         </span>
         <span>
           <span className="sw" style={{ background: 'var(--bg4)', border: '1px solid var(--text3)' }} />
-          recarga sem agendamento
+          {t('recarga sem agendamento', 'charge without booking')}
         </span>
       </div>
       <div className="hint-line">
-        Toque num agendamento para ver a recarga real e os detalhes. Na semana, toque no dia para abrir só ele.
+        {t('Toque num agendamento para ver a recarga real e os detalhes. Na semana, toque no dia para abrir só ele.', 'Tap a booking to see the actual charge and details. In the week view, tap a day to open just that one.')}
       </div>
 
       {open && (

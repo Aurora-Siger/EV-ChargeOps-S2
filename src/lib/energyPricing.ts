@@ -4,6 +4,7 @@
  * nem fixa preço.
  */
 import type { GoalKind, Vehicle } from './types'
+import { labels } from './i18n'
 
 /** Metas de bateria oferecidas como pré-seleção */
 export const TARGETS = [60, 80, 100]
@@ -14,7 +15,7 @@ export function availableTargets(battery: number) {
 }
 
 /** Pra que serve cada meta — 80% é a recomendação dos fabricantes pro dia a dia (preserva a bateria). */
-export const TARGET_USE: Record<number, string> = { 60: 'curto', 80: 'dia a dia', 100: 'viagem' }
+export const TARGET_USE: Record<number, string> = labels({ 60: ['curto', 'short trip'], 80: ['dia a dia', 'daily use'], 100: ['viagem', 'long trip'] })
 
 /**
  * Autonomia (km) com a bateria em `pct`%, proporcional à autonomia de carga cheia do cadastro.
@@ -28,7 +29,7 @@ export function rangeAt(vehicle: Vehicle, pct: number) {
 export type ChargeGoal = { kind: GoalKind; value: number }
 
 export const GOAL_KINDS: GoalKind[] = ['SOC', 'KWH', 'BRL']
-export const GOAL_KIND_LABEL: Record<GoalKind, string> = { SOC: 'Autonomia', KWH: 'Energia', BRL: 'Valor' }
+export const GOAL_KIND_LABEL: Record<GoalKind, string> = labels({ SOC: ['Autonomia', 'Range'], KWH: ['Energia', 'Energy'], BRL: ['Valor', 'Amount'] })
 /** Opções de cada forma; a primeira de cada lista é a que abre ao trocar de forma, exceto em SOC (80%). */
 export const GOAL_OPTIONS: Record<'KWH' | 'BRL', number[]> = { KWH: [10, 20, 30], BRL: [1000, 2000, 4000] }
 export const GOAL_DEFAULT: Record<GoalKind, number> = { SOC: 80, KWH: 20, BRL: 2000 }

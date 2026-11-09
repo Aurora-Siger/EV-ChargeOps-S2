@@ -4,6 +4,7 @@ import type { Settings } from '../../../lib/types'
 import { useApi } from '../../../lib/useApi'
 import { ErrorBox, Field, Loading } from '../ui'
 import { useAction } from '../../../lib/useAction'
+import { t } from '../../../lib/i18n'
 
 type Form = { name: string; fixed: string; idle: string; grace: string; idleMax: string; dueDay: string; base: string }
 
@@ -58,46 +59,46 @@ function ConfigForm({ settings, canWrite, onSaved }: { settings: Settings; canWr
 
   return (
     <form className="c" onSubmit={save}>
-      <div className="c-label">Parâmetros do rateio</div>
+      <div className="c-label">{t('Parâmetros do rateio', 'Split parameters')}</div>
       <fieldset disabled={!canWrite} className="plain-fieldset">
-        <Field label="Nome do condomínio">
+        <Field label={t('Nome do condomínio', 'Building name')}>
           <input value={f.name} onChange={set('name')} required />
         </Field>
         <div className="form-2">
-          <Field label="Tarifa base (R$/kWh)" hint="custo da concessionária, antes do mult">
+          <Field label={t('Tarifa base (R$/kWh)', 'Base rate (R$/kWh)')} hint={t('custo da concessionária, antes do mult', 'utility cost, before the multiplier')}>
             <input value={f.base} onChange={set('base')} inputMode="decimal" required />
           </Field>
-          <Field label="Custo fixo mensal (R$)" hint="manutenção, internet, seguro…">
+          <Field label={t('Custo fixo mensal (R$)', 'Monthly fixed cost (R$)')} hint={t('manutenção, internet, seguro…', 'maintenance, internet, insurance…')}>
             <input value={f.fixed} onChange={set('fixed')} inputMode="decimal" required />
           </Field>
         </div>
         <div className="form-2">
-          <Field label="Ociosidade (R$/min)" hint="tempo plugado depois da carga, lido da telemetria">
+          <Field label={t('Ociosidade (R$/min)', 'Idle fee (R$/min)')} hint={t('tempo plugado depois da carga, lido da telemetria', 'time plugged in after charging, read from telemetry')}>
             <input value={f.idle} onChange={set('idle')} inputMode="decimal" required />
           </Field>
-          <Field label="Carência (min)">
+          <Field label={t('Carência (min)', 'Grace period (min)')}>
             <input value={f.grace} onChange={set('grace')} inputMode="numeric" required />
           </Field>
         </div>
         <div className="form-2">
-          <Field label="Teto da ociosidade (R$)" hint="por recarga; vazio, sem teto">
-            <input value={f.idleMax} onChange={set('idleMax')} inputMode="decimal" placeholder="sem teto" />
+          <Field label={t('Teto da ociosidade (R$)', 'Idle fee cap (R$)')} hint={t('por recarga; vazio, sem teto', 'per charge; empty means no cap')}>
+            <input value={f.idleMax} onChange={set('idleMax')} inputMode="decimal" placeholder={t('sem teto', 'no cap')} />
           </Field>
-          <Field label="Dia de vencimento" hint="no mês seguinte ao ciclo (1 a 28)">
+          <Field label={t('Dia de vencimento', 'Due day')} hint={t('no mês seguinte ao ciclo (1 a 28)', 'in the month after the cycle (1 to 28)')}>
             <input value={f.dueDay} onChange={set('dueDay')} inputMode="numeric" required />
           </Field>
         </div>
       </fieldset>
       <div className="hint-line">
-        A tarifa base nova vale para as recargas que entrarem daqui para a frente; as já registradas mantêm a tarifa do dia.
+        {t('A tarifa base nova vale para as recargas que entrarem daqui para a frente; as já registradas mantêm a tarifa do dia.', 'The new base rate applies to charges recorded from now on; those already recorded keep the rate of their day.')}
       </div>
       {act.error && <div className="login-error">{act.error}</div>}
       {canWrite ? (
         <button className="btn btn-primary" disabled={act.busy}>
-          {act.busy ? 'Salvando…' : saved ? 'Salvo ✓' : 'Salvar'}
+          {act.busy ? t('Salvando…', 'Saving…') : saved ? t('Salvo ✓', 'Saved ✓') : t('Salvar', 'Save')}
         </button>
       ) : (
-        <div className="hint-line">Só o gestor (papel administrador) altera estes valores.</div>
+        <div className="hint-line">{t('Só o gestor (papel administrador) altera estes valores.', 'Only the manager (administrator role) can change these values.')}</div>
       )}
     </form>
   )

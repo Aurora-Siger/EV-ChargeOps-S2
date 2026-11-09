@@ -17,6 +17,7 @@ import {
   STATE_TAG,
 } from '../../../lib/format'
 import type { CycleLine, MyInvoice } from '../../../lib/types'
+import { locale, t } from '../../../lib/i18n'
 import { useApi } from '../../../lib/useApi'
 import EntryRows from '../EntryRows'
 import { Empty, ErrorBox, Loading, Modal } from '../ui'
@@ -56,7 +57,11 @@ export default function FaturaDetalhe({ line, period, onClose }: { line: CycleLi
 function Detail({ data, period }: { data: MyInvoice; period: string }) {
   const l = data.line
   if (!l || (!l.active && l.adjustmentCents === 0)) {
-    return <Empty>Sem recargas em {monthName(period)}: isento da parcela fixa neste ciclo.</Empty>
+    return (
+      <Empty>
+        {t(`Sem recargas em ${monthName(period)}: isento da parcela fixa neste ciclo.`, `No charges in ${monthName(period)}: exempt from the fixed share this cycle.`)}
+      </Empty>
+    )
   }
 
   const s = data.sessions
@@ -76,11 +81,11 @@ function Detail({ data, period }: { data: MyInvoice; period: string }) {
         <div>
           <div className="inv-total">{fmtBRL(l.totalCents)}</div>
           <div className="inv-sub">
-            {monthName(period)} · {l.status === 'OPEN' ? `ciclo aberto, vence ${fmtDueDate(l.dueDate)}` : `vence ${fmtDueDate(l.dueDate)}`}
+            {monthName(period)} · {l.status === 'OPEN' ? `${t('ciclo aberto, vence', 'cycle open, due')} ${fmtDueDate(l.dueDate)}` : `${t('vence', 'due')} ${fmtDueDate(l.dueDate)}`}
             {diff !== null && diff !== 0 && (
               <span className={diff > 0 ? 'up' : 'down'}>
                 {' '}
-                · {diff > 0 ? '▲' : '▼'} {fmtBRL(Math.abs(diff))} vs {monthName(shiftPeriod(period, -1))}
+                · {diff > 0 ? '▲' : '▼'} {fmtBRL(Math.abs(diff))} {t('vs', 'vs')} {monthName(shiftPeriod(period, -1))}
               </span>
             )}
           </div>
@@ -90,27 +95,27 @@ function Detail({ data, period }: { data: MyInvoice; period: string }) {
 
       <div className="inv-stats">
         <div>
-          <small>Energia</small>
+          <small>{t('Energia', 'Energy')}</small>
           <b>{fmtKwh(l.energyKwh)}</b>
           <span>
-            {l.sessionsCount} {l.sessionsCount === 1 ? 'recarga' : 'recargas'}
+            {l.sessionsCount} {l.sessionsCount === 1 ? t('recarga', 'charge') : t('recargas', 'charges')}
           </span>
         </div>
         <div>
-          <small>Preço médio</small>
+          <small>{t('Preço médio', 'Average price')}</small>
           <b>{fmtBRL(Math.round(avgPrice))}/kWh</b>
-          <span>custo {fmtBRL(Math.round(avgCost))}/kWh</span>
+          <span>{t('custo', 'cost')} {fmtBRL(Math.round(avgCost))}/kWh</span>
         </div>
         <div>
-          <small>Ociosidade</small>
+          <small>{t('Ociosidade', 'Idle time')}</small>
           <b>{idleMin ? fmtMinutes(idleMin) : '—'}</b>
-          <span>plugado sem carregar</span>
+          <span>{t('plugado sem carregar', 'plugged in, not charging')}</span>
         </div>
       </div>
 
       {byLevel.length > 0 && (
         <div className="inv-block">
-          <div className="c-label">Quando carregou</div>
+          <div className="c-label">{t('Quando carregou', 'When it charged')}</div>
           <div className="bill-split">
             {byLevel.map((x) => (
               <div key={x.lv} className={`lv-${x.lv}`} style={{ width: `${(x.kwh / kwhTotal) * 100}%` }} />
@@ -128,41 +133,41 @@ function Detail({ data, period }: { data: MyInvoice; period: string }) {
       )}
 
       <div className="inv-block">
-        <div className="c-label">Composição do valor</div>
+        <div className="c-label">{t('Composição do valor', 'Breakdown of the amount')}</div>
         <div className="calc-rows">
           <div>
-            <span>Energia a preço de custo · {fmtKwh(l.energyKwh)} × tarifa base</span>
+            <span>{t('Energia a preço de custo', 'Energy at cost price')} · {fmtKwh(l.energyKwh)} × {t('tarifa base', 'base rate')}</span>
             <b>{fmtBRL(l.energyCostCents)}</b>
           </div>
           <div>
             <span>
-              Ajuste da tarifa dinâmica · mult por horário{idleMin > 0 ? ' e ociosidade' : ''} (
-              {surcharge >= 0 ? 'acima' : 'abaixo'} do custo)
+              {t('Ajuste da tarifa dinâmica', 'Dynamic rate adjustment')} · {t('mult por horário', 'multiplier by hour')}{idleMin > 0 ? t(' e ociosidade', ' and idle time') : ''} (
+              {surcharge >= 0 ? t('acima', 'above') : t('abaixo', 'below')} {t('do custo', 'of the cost')})
             </span>
             <b>
               {surcharge >= 0 ? '+' : '−'} {fmtBRL(Math.abs(surcharge))}
             </b>
           </div>
           <div className="sub">
-            <span>= Energia cobrada</span>
+            <span>= {t('Energia cobrada', 'Energy charged')}</span>
             <b>{fmtBRL(l.chargedCents)}</b>
           </div>
           <div>
             <span>
               {l.kind === 'CONVIDADO' ? (
-                'Parcela fixa · convidado não entra no rateio'
+                t('Parcela fixa · convidado não entra no rateio', 'Fixed share · guests are not part of the split')
               ) : (
                 <>
-                  Parcela fixa · {fmtBRL(data.fixedSplitCents)} ÷ {data.activeUsers}{' '}
-                  {data.activeUsers === 1 ? 'morador ativo' : 'moradores ativos'}
-                  {data.expensesCents > 0 && ` (inclui ${fmtBRL(data.expensesCents)} de despesas do mês)`}
+                  {t('Parcela fixa', 'Fixed share')} · {fmtBRL(data.fixedSplitCents)} ÷ {data.activeUsers}{' '}
+                  {data.activeUsers === 1 ? t('morador ativo', 'active resident') : t('moradores ativos', 'active residents')}
+                  {data.expensesCents > 0 && ` (${t('inclui', 'includes')} ${fmtBRL(data.expensesCents)} ${t('de despesas do mês', 'of expenses this month')})`}
                 </>
               )}
             </span>
             <b>+ {fmtBRL(l.fixedShareCents)}</b>
           </div>
           <div className="good">
-            <span>Crédito do excedente (volta na parcela fixa, até zerá-la)</span>
+            <span>{t('Crédito do excedente (volta na parcela fixa, até zerá-la)', 'Surplus credit (goes back to the fixed share, until it reaches zero)')}</span>
             <b>− {fmtBRL(l.creditCents)}</b>
           </div>
           <EntryRows data={data} />
@@ -174,10 +179,10 @@ function Detail({ data, period }: { data: MyInvoice; period: string }) {
       </div>
 
       <div className="inv-block">
-        <div className="c-label">Recarga por recarga</div>
+        <div className="c-label">{t('Recarga por recarga', 'Charge by charge')}</div>
         <div className="inv-table" role="table">
           <div className="inv-tr th" role="row">
-            <span>Quando</span>
+            <span>{t('Quando', 'When')}</span>
             <span>kWh</span>
             <span>Mult</span>
             <span>Custo</span>
@@ -189,7 +194,7 @@ function Detail({ data, period }: { data: MyInvoice; period: string }) {
                 {fmtDay(x.startedAt)} {fmtTime(x.startedAt)}
                 {x.level && <i className={`dot lv-${x.level}`} title={LEVEL_LABEL[x.level]} />}
               </span>
-              <span>{x.energyKwh.toLocaleString('pt-BR', { maximumFractionDigits: 1 })}</span>
+              <span>{x.energyKwh.toLocaleString(locale(), { maximumFractionDigits: 1 })}</span>
               <span>{x.mult !== null ? fmtMult(x.mult) : '—'}</span>
               <span>{x.energyCostCents !== null ? fmtBRL(x.energyCostCents) : '—'}</span>
               <b>{x.chargedCents !== null ? fmtBRL(x.chargedCents) : '—'}</b>
@@ -200,12 +205,12 @@ function Detail({ data, period }: { data: MyInvoice; period: string }) {
 
       {charges.length > 0 && (
         <div className="inv-block">
-          <div className="c-label">Cobranças</div>
+          <div className="c-label">{t('Cobranças', 'Charges')}</div>
           {charges.map((c) => (
             <div className="inv-charge" key={c.id}>
               <span>
                 {METHOD_LABEL[c.method]} · {fmtBRL(c.amountCents)}
-                {c.paidAt ? ` · pago em ${fmtDateTime(c.paidAt)}` : ` · vence ${fmtDueDate(c.dueDate)}`}
+                {c.paidAt ? ` · ${t('pago em', 'paid on')} ${fmtDateTime(c.paidAt)}` : ` · ${t('vence', 'due')} ${fmtDueDate(c.dueDate)}`}
               </span>
               <span className={`ptag ${CHARGE_TAG[c.status]}`}>{CHARGE_LABEL[c.status]}</span>
             </div>

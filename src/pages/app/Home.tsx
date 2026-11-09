@@ -8,6 +8,7 @@ import ReservationCard from './ReservationCard'
 import { Empty } from './ui'
 import { initials, useMe } from './me'
 import type { Tab } from './App'
+import { t } from '../../lib/i18n'
 
 const LEVEL_STYLE = { color: 'var(--green)', borderColor: 'var(--green-b)', background: 'var(--green-l)' }
 
@@ -69,14 +70,14 @@ function LiveCharge({
       <ChargeRing pct={soc} />
       <div className="live-charge-body">
         <div className="live-charge-k">
-          <span className="dot" /> carregando agora
+          <span className="dot" /> {t('carregando agora', 'charging now')}
           {session && priceCentsKwh !== null && <span className="km">+{fmtNum(session.km, 0)} km</span>}
         </div>
         <div className="live-charge-v">
           {session && priceCentsKwh !== null ? fmtBRL(session.kwh * priceCentsKwh) : session ? `+${fmtNum(session.km, 0)} km` : `${soc}%`}
         </div>
         <div className="live-charge-s">
-          {[...facts, etaMin !== null && `${fmtMinutes(etaMin)} até ${targetSoc}%`]
+          {[...facts, etaMin !== null && `${fmtMinutes(etaMin)} ${t('até', 'to')} ${targetSoc}%`]
             .filter(Boolean)
             .join(' · ')}
         </div>
@@ -89,15 +90,16 @@ function LiveCharge({
  * Recibo de uma recarga: quando, quanto entrou, a tarifa e o multiplicador da hora, e a
  * ociosidade (minutos plugado depois da carga, se cobrados). Abre tocando na recarga.
  */
-const RCPT_LEVEL = { cheap: 'horário barato', mid: 'horário normal', peak: 'horário de pico' } as const
+const rcptLevel = () => ({ cheap: t('horário barato', 'cheap hours'), mid: t('horário normal', 'normal hours'), peak: t('horário de pico', 'peak hours') })
 
 /** Recibo de uma recarga: total, o que foi carregado e de onde vem cada parte do valor. */
 export function Receipt({ s }: { s: Session }) {
+  const RCPT_LEVEL = rcptLevel()
   const energyCharged = s.mult !== null && s.energyCostCents !== null ? Math.round(s.mult * s.energyCostCents) : null
   const idleCharged = s.chargedCents !== null && energyCharged !== null ? Math.max(0, s.chargedCents - energyCharged) : 0
   const lines: { k: string; d: string; v: string }[] = [
     {
-      k: 'Energia',
+      k: t('Energia', 'Energy'),
       d:
         s.tariffBaseCentsKwh !== null && s.mult !== null
           ? `${fmtKwh(s.energyKwh, 1)} × ${fmtBRL(s.tariffBaseCentsKwh)} × ${fmtMult(s.mult)}`
@@ -105,17 +107,17 @@ export function Receipt({ s }: { s: Session }) {
       v: energyCharged !== null ? fmtBRL(energyCharged) : '—',
     },
     ...(s.idleMin > 0
-      ? [{ k: 'Ocupação da vaga', d: `${fmtMinutes(s.idleMin)} plugado depois de carregar`, v: fmtBRL(idleCharged) }]
+      ? [{ k: t('Ocupação da vaga', 'Spot occupancy'), d: `${fmtMinutes(s.idleMin)} ${t('plugado depois de carregar', 'plugged in after charging')}`, v: fmtBRL(idleCharged) }]
       : []),
   ]
   return (
     <div className="rcpt">
       <div className="rcpt-head">
-        <span className="rcpt-k">Total da recarga</span>
-        <span className="rcpt-total">{s.chargedCents !== null ? fmtBRL(s.chargedCents) : 'em cálculo'}</span>
+        <span className="rcpt-k">{t('Total da recarga', 'Charge total')}</span>
+        <span className="rcpt-total">{s.chargedCents !== null ? fmtBRL(s.chargedCents) : t('em cálculo', 'calculating')}</span>
         <span className="rcpt-when">
           {fmtDay(s.startedAt)}, {fmtTime(s.startedAt)}
-          {s.endedAt && ` às ${fmtTime(s.endedAt)}`}
+          {s.endedAt && ` ${t('às', 'at')} ${fmtTime(s.endedAt)}`}
           {s.level && (
             <span className={`cost-level ${s.level}`}>
               <i />
@@ -126,15 +128,15 @@ export function Receipt({ s }: { s: Session }) {
       </div>
       <div className="rcpt-facts">
         <div>
-          <span>Energia</span>
+          <span>{t('Energia', 'Energy')}</span>
           <b>{fmtKwh(s.energyKwh, 1)}</b>
         </div>
         <div>
-          <span>Duração</span>
+          <span>{t('Duração', 'Duration')}</span>
           <b>{s.durationMin !== null ? fmtMinutes(s.durationMin) : '—'}</b>
         </div>
         <div>
-          <span>Tarifa</span>
+          <span>{t('Tarifa', 'Rate')}</span>
           <b>{s.mult !== null ? fmtMult(s.mult) : '—'}</b>
         </div>
       </div>
@@ -149,7 +151,7 @@ export function Receipt({ s }: { s: Session }) {
           </div>
         ))}
       </div>
-      <div className="rcpt-foot">Entra na fatura do mês da sua unidade.</div>
+      <div className="rcpt-foot">{t('Entra na fatura do mês da sua unidade.', 'Added to your unit’s bill for the month.')}</div>
     </div>
   )
 }
@@ -181,10 +183,10 @@ export default function Home({ go }: { go: (t: Tab) => void }) {
 
   const statusText =
     home?.free === null || !home
-      ? 'Sem telemetria do carregador'
+      ? t('Sem telemetria do carregador', 'No charger telemetry')
       : home.free > 0
-        ? 'Carregador livre agora'
-        : 'Carregador em uso agora'
+        ? t('Carregador livre agora', 'Charger free now')
+        : t('Carregador em uso agora', 'Charger in use now')
 
   // "sessão ativa agora" — só quando a telemetria realmente mostra corrente fluindo, não só
   // carro plugado parado (ver isOccupied em sems.service.ts pro caso mais amplo).
@@ -203,15 +205,15 @@ export default function Home({ go }: { go: (t: Tab) => void }) {
     <div className="screen-anim">
       <div className="app-greet">
         <div>
-          <div className="hi">Oi, {me.user.name.split(' ')[0]} 👋</div>
+          <div className="hi">{t('Oi,', 'Hi,')} {me.user.name.split(' ')[0]} 👋</div>
           <div className="sub">
             {me.workspace?.kind === 'CONVIDADO'
-              ? `Convidado · ${me.workspace.name}`
+              ? `${t('Convidado', 'Guest')} · ${me.workspace.name}`
               : me.unit
                 ? `${me.unit.label}${me.station ? ` · ${me.station.name}` : ''}`
                 : me.workspace
-                  ? `${me.workspace.name} · sem unidade vinculada`
-                  : 'Você ainda não participa de nenhum condomínio'}
+                  ? `${me.workspace.name} · ${t('sem unidade vinculada', 'no unit linked')}`
+                  : t('Você ainda não participa de nenhum condomínio', "You're not part of any building yet")}
           </div>
         </div>
         <div className="app-avatar">{initials(me.user.name)}</div>
@@ -224,10 +226,10 @@ export default function Home({ go }: { go: (t: Tab) => void }) {
             <span className="st">
               <span className="dot" /> {statusText}
             </span>
-            <h2>Bora carregar?</h2>
+            <h2>{t('Bora carregar?', 'Ready to charge?')}</h2>
             <div className="where">
-              {home ? `${home.name}${home.address ? ` · ${home.address}` : ''}` : 'Carregador do condomínio'}
-              {now && ` · agora ${fmtBRL(now.priceCentsKwh)}/kWh (${LEVEL_LABEL[now.level].toLowerCase()})`}
+              {home ? `${home.name}${home.address ? ` · ${home.address}` : ''}` : t('Carregador do condomínio', "Building's charger")}
+              {now && ` · ${t('agora', 'now')} ${fmtBRL(now.priceCentsKwh)}/kWh (${LEVEL_LABEL[now.level].toLowerCase()})`}
             </div>
 
             {charging && (session || home?.soc != null) && (
@@ -241,10 +243,10 @@ export default function Home({ go }: { go: (t: Tab) => void }) {
             )}
 
             <button className="btn btn-primary" onClick={() => go('agendar')}>
-              Agendar recarga
+              {t('Agendar recarga', 'Book a charge')}
             </button>
             <button className="where-change" onClick={() => go('mapa')}>
-              ver outros pontos de recarga →
+              {t('ver outros pontos de recarga →', 'see other charging points →')}
             </button>
           </div>
 
@@ -252,13 +254,13 @@ export default function Home({ go }: { go: (t: Tab) => void }) {
             <div className="best-hour">
               <div className="ic">{I.chart}</div>
               <div className="info">
-                <div className="label">Melhor horário pra carregar hoje</div>
+                <div className="label">{t('Melhor horário pra carregar hoje', 'Best time to charge today')}</div>
                 <div className="val">
                   {cheapest === now ? (
-                    <b>agora mesmo</b>
+                    <b>{t('agora mesmo', 'right now')}</b>
                   ) : (
                     <>
-                      {fmtDay(cheapest.at)} às <b>{fmtTime(cheapest.at)}</b>
+                      {fmtDay(cheapest.at)} {t('às', 'at')} <b>{fmtTime(cheapest.at)}</b>
                     </>
                   )}
                 </div>
@@ -268,14 +270,14 @@ export default function Home({ go }: { go: (t: Tab) => void }) {
           )}
 
           <div className="c">
-            <div className="c-label">Sua próxima reserva</div>
+            <div className="c-label">{t('Sua próxima reserva', 'Your next booking')}</div>
             {next ? (
               <ReservationCard r={next} />
             ) : (
               <Empty>
-                Nenhuma reserva marcada.{' '}
+                {t('Nenhuma reserva marcada.', 'No bookings yet.')}{' '}
                 <button className="link-btn" onClick={() => go('agendar')}>
-                  Agendar agora
+                  {t('Agendar agora', 'Book now')}
                 </button>
               </Empty>
             )}
@@ -286,32 +288,32 @@ export default function Home({ go }: { go: (t: Tab) => void }) {
           <div className="volt-card">
             <Volt size={52} />
             <div className="bubble">
-              <div className="who">Volt · seu mês até agora</div>
+              <div className="who">{t('Volt · seu mês até agora', 'Volt · your month so far')}</div>
               {line && line.sessionsCount > 0 ? (
                 <p>
-                  Você carregou <b>{fmtKwh(line.energyKwh)}</b> em {line.sessionsCount}{' '}
-                  {line.sessionsCount === 1 ? 'recarga' : 'recargas'}
+                  {t('Você carregou', "You've charged")} <b>{fmtKwh(line.energyKwh)}</b> {t('em', 'in')} {line.sessionsCount}{' '}
+                  {line.sessionsCount === 1 ? t('recarga', 'charge') : t('recargas', 'charges')}
                   {monthSessions.length > 0 && (
                     <>
-                      , <span className="good">{offPeak} fora do pico</span>
+                      , <span className="good">{offPeak} {t('fora do pico', 'off-peak')}</span>
                     </>
                   )}
-                  . A fatura parcial está em <b>{fmtBRL(line.totalCents)}</b>.
+                  . {t('A fatura parcial está em', 'The partial bill is at')} <b>{fmtBRL(line.totalCents)}</b>.
                 </p>
               ) : (
-                <p>Nenhuma recarga sua neste mês ainda.</p>
+                <p>{t('Nenhuma recarga sua neste mês ainda.', 'No charges from you this month yet.')}</p>
               )}
               <button className="more" onClick={() => go('fatura')}>
-                Ver minha fatura →
+                {t('Ver minha fatura →', 'See my bill →')}
               </button>
             </div>
           </div>
 
           <div className="c">
-            <div className="c-label">Atividade recente</div>
+            <div className="c-label">{t('Atividade recente', 'Recent activity')}</div>
             {recent.data?.length === 0 && (
               <Empty>
-                Nenhuma recarga no seu nome ainda.{me.cards.length === 0 && ' Peça ao gestor para cadastrar seu cartão RFID.'}
+                {t('Nenhuma recarga no seu nome ainda.', 'No charges under your name yet.')}{me.cards.length === 0 && ` ${t('Peça ao gestor para cadastrar seu cartão RFID.', 'Ask the building manager to register your RFID card.')}`}
               </Empty>
             )}
             {recent.data?.map((r) => (
@@ -325,7 +327,7 @@ export default function Home({ go }: { go: (t: Tab) => void }) {
                   {I.bolt}
                 </div>
                 <div className="info">
-                  <div className="t">{r.level ? `Recarga · ${LEVEL_LABEL[r.level].toLowerCase()}` : 'Recarga'}</div>
+                  <div className="t">{r.level ? `${t('Recarga', 'Charge')} · ${LEVEL_LABEL[r.level].toLowerCase()}` : t('Recarga', 'Charge')}</div>
                   <div className="s">
                     {fmtDay(r.startedAt)} · {fmtTime(r.startedAt)} · {fmtKwh(r.energyKwh)}
                   </div>

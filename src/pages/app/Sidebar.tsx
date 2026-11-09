@@ -5,6 +5,7 @@ import type { Me, WorkspaceSummary } from '../../lib/types'
 import { useApi } from '../../lib/useApi'
 import { I } from './icons'
 import { initials, isSuperAdmin, memberLabel, useMe } from './me'
+import { t } from '../../lib/i18n'
 
 /** Preferência só deste navegador: se o localStorage falhar (aba anônima), vale o padrão. */
 function usePersisted(key: string, initial: boolean) {
@@ -74,14 +75,14 @@ function WorkspaceSwitcher() {
   const superAdmin = isSuperAdmin(me)
   const all = useApi<WorkspaceSummary[]>(superAdmin ? '/api/super/workspaces' : null)
   const options = superAdmin
-    ? (all.data ?? []).map((w) => ({ id: w.id, label: w.archivedAt ? `${w.name} (arquivado)` : w.name }))
+    ? (all.data ?? []).map((w) => ({ id: w.id, label: w.archivedAt ? `${w.name} (${t('arquivado', 'archived')})` : w.name }))
     : me.memberships.map((m) => ({ id: m.workspaceId, label: `${m.name} · ${memberLabel(m).toLowerCase()}` }))
   if (options.length < 2 && !superAdmin) return null
   return (
     <label className="side-ws">
-      <span>Condomínio</span>
+      <span>{t('Condomínio', 'Building')}</span>
       <select value={me.workspace?.id ?? ''} onChange={(e) => switchWorkspace(e.target.value)}>
-        {!me.workspace && <option value="">— nenhum —</option>}
+        {!me.workspace && <option value="">{t('— nenhum —', '— none —')}</option>}
         {options.map((o) => (
           <option key={o.id} value={o.id}>
             {o.label}
@@ -113,14 +114,14 @@ export default function Sidebar({
   return (
     <aside className={`app-side ${collapsed ? 'collapsed' : ''}`}>
       <div className="side-head">
-        <Link to="/" className="side-logo" title="Voltar para o site">
+        <Link to="/" className="side-logo" title={t('Voltar para o site', 'Back to the website')}>
           <img src={logo} alt="Chargefy" />
         </Link>
         <button
           className="side-toggle"
           onClick={() => setCollapsed(!collapsed)}
-          aria-label={collapsed ? 'Expandir menu' : 'Recolher menu'}
-          title={collapsed ? 'Expandir menu' : 'Recolher menu'}
+          aria-label={collapsed ? t('Expandir menu', 'Expand menu') : t('Recolher menu', 'Collapse menu')}
+          title={collapsed ? t('Expandir menu', 'Expand menu') : t('Recolher menu', 'Collapse menu')}
         >
           {I.panel}
         </button>
@@ -147,9 +148,9 @@ export default function Sidebar({
             <div className="e">{me.user.email}</div>
           </div>
         </div>
-        <button className="side-logout" onClick={onLogout} disabled={saindo} title={collapsed ? 'Sair da conta' : undefined}>
+        <button className="side-logout" onClick={onLogout} disabled={saindo} title={collapsed ? t('Sair da conta', 'Sign out') : undefined}>
           <span className="side-icon">{I.logout}</span>
-          <span className="side-text">{saindo ? 'Saindo…' : 'Sair da conta'}</span>
+          <span className="side-text">{saindo ? t('Saindo…', 'Signing out…') : t('Sair da conta', 'Sign out')}</span>
         </button>
       </div>
     </aside>

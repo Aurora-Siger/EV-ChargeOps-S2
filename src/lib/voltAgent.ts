@@ -7,6 +7,7 @@
  * mensagens de quem usa o Volt da landing sem login.
  */
 
+import { getLang } from './i18n'
 const ENDPOINT = '/api/agent/chat'
 const VISITOR_KEY = 'chargefy_visitor_id'
 
@@ -46,7 +47,7 @@ export async function askVolt(conversationId: string | undefined, message: strin
   const res = await fetch(ENDPOINT, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ visitorId: visitorId(), conversationId, message }),
+    body: JSON.stringify({ visitorId: visitorId(), conversationId, message, lang: getLang() }),
   })
   if (!res.ok) {
     const body = await res.text().catch(() => '')

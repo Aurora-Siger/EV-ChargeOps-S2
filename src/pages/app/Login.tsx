@@ -1,8 +1,10 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
+import LangToggle from '../../components/LangToggle'
 import Volt from '../../components/Volt'
 import logo from '../../assets/logo.png'
-import { CONNECTION_ERROR_MESSAGE, authClient, authErrorMessage } from '../../lib/authClient'
+import { authClient, authErrorMessage, connectionErrorMessage } from '../../lib/authClient'
+import { t } from '../../lib/i18n'
 
 /* ── login (Better Auth, e-mail e senha; sem cadastro público) ── */
 
@@ -28,7 +30,7 @@ export default function Login() {
       }
     } catch {
       // O cliente lança (em vez de devolver `error`) quando a conexão cai no caminho.
-      setErro(CONNECTION_ERROR_MESSAGE)
+      setErro(connectionErrorMessage())
       setEntrando(false)
     }
   }
@@ -36,6 +38,9 @@ export default function Login() {
   return (
     <div className="login">
       <div className="login-glow" />
+      <div className="theme-corner">
+        <LangToggle />
+      </div>
       <div className="login-box">
         <Link to="/" className="login-logo">
           <img src={logo} alt="Chargefy" />
@@ -44,26 +49,26 @@ export default function Login() {
         <div className="login-volt">
           <Volt size={64} />
           <div className="login-hi">
-            <h1>Bem-vindo de volta</h1>
-            <p>Entre para agendar sua recarga e acompanhar seus gastos.</p>
+            <h1>{t('Bem-vindo de volta', 'Welcome back')}</h1>
+            <p>{t('Entre para agendar sua recarga e acompanhar seus gastos.', 'Sign in to book your charge and track your spending.')}</p>
           </div>
         </div>
 
         <form onSubmit={submit}>
           <label className="field">
-            <span>E-mail</span>
+            <span>{t('E-mail', 'Email')}</span>
             <input
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="seu@email.com"
+              placeholder={t('seu@email.com', 'you@email.com')}
               autoComplete="email"
               required
             />
           </label>
 
           <label className="field">
-            <span>Senha</span>
+            <span>{t('Senha', 'Password')}</span>
             <div className="field-pw">
               <input
                 type={verSenha ? 'text' : 'password'}
@@ -74,21 +79,23 @@ export default function Login() {
                 required
               />
               <button type="button" className="pw-toggle" onClick={() => setVerSenha((v) => !v)}>
-                {verSenha ? 'ocultar' : 'mostrar'}
+                {verSenha ? t('ocultar', 'hide') : t('mostrar', 'show')}
               </button>
             </div>
           </label>
 
           <div className="login-row">
             <label className="check-lbl">
-              <input type="checkbox" checked={lembrar} onChange={(e) => setLembrar(e.target.checked)} /> Manter conectado
+              <input type="checkbox" checked={lembrar} onChange={(e) => setLembrar(e.target.checked)} /> {t('Manter conectado', 'Keep me signed in')}
             </label>
             <button
               type="button"
               className="link-btn"
-              onClick={() => setAviso('Peça ao gestor do condomínio para definir uma senha nova para você no painel.')}
+              onClick={() =>
+                setAviso(t('Peça ao gestor do condomínio para definir uma senha nova para você no painel.', 'Ask your building manager to set a new password for you in the dashboard.'))
+              }
             >
-              Esqueci minha senha
+              {t('Esqueci minha senha', 'Forgot my password')}
             </button>
           </div>
 
@@ -101,17 +108,19 @@ export default function Login() {
           )}
 
           <button className="btn btn-primary login-cta" type="submit" disabled={entrando}>
-            {entrando ? 'Entrando…' : 'Entrar'}
+            {entrando ? t('Entrando…', 'Signing in…') : t('Entrar', 'Sign in')}
           </button>
         </form>
 
         <div className="login-foot">
-          Não tem conta?{' '}
+          {t('Não tem conta?', "Don't have an account?")}{' '}
           <button
             className="link-btn"
-            onClick={() => setAviso('Não há cadastro aberto: o gestor do condomínio cria a sua conta e vincula a sua unidade.')}
+            onClick={() =>
+              setAviso(t('Não há cadastro aberto: o gestor do condomínio cria a sua conta e vincula a sua unidade.', "There's no open sign-up: your building manager creates your account and links it to your unit."))
+            }
           >
-            Fale com o síndico
+            {t('Fale com o síndico', 'Talk to your building manager')}
           </button>
         </div>
       </div>

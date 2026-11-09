@@ -26,17 +26,18 @@ import { Empty, ErrorBox } from './ui'
 import { useMe } from './me'
 import { useAction } from '../../lib/useAction'
 import type { Tab } from './App'
+import { t } from '../../lib/i18n'
 
 const DAYS_AHEAD = 7
 
 /** Hoje + 6 dias, no horário do condomínio. */
 function nextDays() {
-  const t = local(new Date())
+  const today = local(new Date())
   return Array.from({ length: DAYS_AHEAD }, (_, i) => {
-    const start = fromLocal(t.year, t.month, t.day + i)
-    const end = fromLocal(t.year, t.month, t.day + i + 1)
+    const start = fromLocal(today.year, today.month, today.day + i)
+    const end = fromLocal(today.year, today.month, today.day + i + 1)
     const l = local(start)
-    return { start, end, w: i === 0 ? 'hoje' : i === 1 ? 'amanhã' : WEEKDAYS[l.weekday], n: l.day }
+    return { start, end, w: i === 0 ? t('hoje', 'today') : i === 1 ? t('amanhã', 'tomorrow') : WEEKDAYS[l.weekday], n: l.day }
   })
 }
 
@@ -62,14 +63,14 @@ function PlacePhoto({ own, imageUrl, seed }: { own: boolean; imageUrl: string | 
       ) : (
         <span className="place-photo-ic">{I.bolt}</span>
       )}
-      <span className={`place-kind ${own ? 'own' : ''}`}>{own ? 'Seu condomínio' : 'Parceiro da rede'}</span>
+      <span className={`place-kind ${own ? 'own' : ''}`}>{own ? t('Seu condomínio', 'Your building') : t('Parceiro da rede', 'Network partner')}</span>
     </div>
   )
 }
 
 type Mode = 'now' | 'later'
 type WizardStep = 0 | 1 | 2 | 3
-const WIZARD_LABELS = ['Onde', 'Quando', 'Quanto', 'Confirmar']
+const wizardLabels = () => [t('Onde', 'Where'), t('Quando', 'When'), t('Quanto', 'How much'), t('Confirmar', 'Confirm')]
 
 /** Cor por faixa de preço, pra pintar a trilha do slider de horário (verde barato → vermelho pico). */
 const LEVEL_COLOR: Record<StartSlot['level'], string> = { cheap: 'var(--green)', mid: 'var(--amber)', peak: 'var(--red)' }
@@ -91,19 +92,19 @@ function BatteryGauge({ vehicle, soc, target, go }: { vehicle: Vehicle; soc: num
   return (
     <div className="batt">
       <div className="batt-head">
-        <span>Bateria</span>
+        <span>{t('Bateria', 'Battery')}</span>
         <b>
           {fmtKwh(vehicle.capacityKwh)}
           {km !== null ? ` · ${km} km` : ''}
         </b>
       </div>
-      <div className="batt-bar" role="img" aria-label={`${soc !== null ? `agora ${soc}%, ` : ''}meta ${target}%`}>
+      <div className="batt-bar" role="img" aria-label={`${soc !== null ? `${t('agora', 'now')} ${soc}%, ` : ''}${t('meta', 'target')} ${target}%`}>
         <div className="batt-target" style={{ width: `${target}%` }} />
         {soc !== null && <div className="batt-now" style={{ width: `${soc}%` }} />}
       </div>
       {km === null && (
         <button className="hint-line batt-link" onClick={() => go('perfil')}>
-          Cadastra a autonomia do carro no Perfil pra ver a meta em km.
+          {t('Cadastra a autonomia do carro no Perfil pra ver a meta em km.', 'Add the car range in Profile to see the target in km.')}
         </button>
       )}
     </div>
@@ -143,15 +144,15 @@ function GoalPicker({
   if (goal.kind === 'SOC') {
     const km = rangeAt(vehicle, goal.value)
     big = km !== null ? `${km} km` : `${goal.value}%`
-    sub = [km !== null ? `bateria em ${goal.value}%` : fmtKwh((goal.value / 100) * vehicle.capacityKwh), TARGET_USE[goal.value]]
+    sub = [km !== null ? `${t('bateria em', 'battery at')} ${goal.value}%` : fmtKwh((goal.value / 100) * vehicle.capacityKwh), TARGET_USE[goal.value]]
   } else if (goal.kind === 'KWH') {
     const kwh = Math.min(goal.value, room)
     big = `${goal.value} kWh`
-    sub = [fmtKm(kwh), `bateria até ${socAfter(vehicle, fromSoc, kwh)}%`]
+    sub = [fmtKm(kwh), `${t('bateria até', 'battery up to')} ${socAfter(vehicle, fromSoc, kwh)}%`]
   } else {
     const kwh = priceCentsKwh ? Math.min(room, goal.value / priceCentsKwh) : null
     big = `R$ ${goal.value / 100}`
-    sub = kwh === null ? ['no máximo'] : kwh >= room - 0.5 ? ['enche a bateria'] : [`≈ ${fmtKwh(kwh, 1)}`, fmtKm(kwh)]
+    sub = kwh === null ? [t('no máximo', 'at most')] : kwh >= room - 0.5 ? [t('enche a bateria', 'fills the battery')] : [`≈ ${fmtKwh(kwh, 1)}`, fmtKm(kwh)]
   }
 
   const options: { v: number; label: string; disabled?: boolean }[] =
@@ -163,7 +164,7 @@ function GoalPicker({
 
   return (
     <div className="goal">
-      <div className="goal-tabs" role="tablist" aria-label="Forma de pedir a carga">
+      <div className="goal-tabs" role="tablist" aria-label={t('Forma de pedir a carga', 'How to order the charge')}>
         {GOAL_KINDS.map((k) => (
           <button
             key={k}
@@ -197,13 +198,14 @@ function GoalPicker({
 }
 
 /** O custo estimado em destaque no topo do resumo, com a faixa de preço da janela. */
-const COST_LEVEL = { cheap: 'horário barato', mid: 'horário normal', peak: 'horário de pico' } as const
+const costLevel = () => ({ cheap: t('horário barato', 'cheap hours'), mid: t('horário normal', 'normal hours'), peak: t('horário de pico', 'peak hours') })
 
 function CostHero({ cents, level }: { cents: number; level: StartSlot['level'] }) {
+  const COST_LEVEL = costLevel()
   return (
     <div className="cost-hero">
       <div>
-        <span className="k">Custo estimado</span>
+        <span className="k">{t('Custo estimado', 'Estimated cost')}</span>
         <b>{fmtBRL(cents)}</b>
       </div>
       <span className={`cost-level ${level}`}>
@@ -221,6 +223,7 @@ function socLabel(vehicle: Vehicle, soc: number) {
 }
 
 export default function Agendar({ go }: { go: (t: Tab) => void }) {
+  const WIZARD_LABELS = wizardLabels()
   const { me } = useMe()
   const charger = me.charger
   const [vehicleId, setVehicleId] = useState(me.vehicles[0]?.id ?? '')
@@ -308,8 +311,8 @@ export default function Agendar({ go }: { go: (t: Tab) => void }) {
   const slotsData = starts.loading ? null : starts.data
   const slotsByDay = days.map((d) =>
     (slotsData?.slots ?? []).filter((s) => {
-      const t = new Date(s.startsAt).getTime()
-      return t >= d.start.getTime() && t < d.end.getTime()
+      const at = new Date(s.startsAt).getTime()
+      return at >= d.start.getTime() && at < d.end.getTime()
     }),
   )
   const firstOpenDay = slotsData ? slotsByDay.findIndex((ss) => ss.some((s) => s.free)) : -1
@@ -348,8 +351,8 @@ export default function Agendar({ go }: { go: (t: Tab) => void }) {
   if (!charger) {
     return (
       <div className="screen-anim">
-        <div className="screen-title">Agendar recarga</div>
-        <ErrorBox error="Nenhum carregador vinculado à sua unidade. Fale com o gestor do condomínio." />
+        <div className="screen-title">{t('Agendar recarga', 'Book a charge')}</div>
+        <ErrorBox error={t('Nenhum carregador vinculado à sua unidade. Fale com o gestor do condomínio.', 'No charger linked to your unit. Talk to the building manager.')} />
       </div>
     )
   }
@@ -357,12 +360,12 @@ export default function Agendar({ go }: { go: (t: Tab) => void }) {
   if (!vehicle) {
     return (
       <div className="screen-anim">
-        <div className="screen-title">Agendar recarga</div>
-        <div className="screen-sub">Para calcular quanto tempo e quanto custa, o app precisa conhecer o seu carro.</div>
+        <div className="screen-title">{t('Agendar recarga', 'Book a charge')}</div>
+        <div className="screen-sub">{t('Para calcular quanto tempo e quanto custa, o app precisa conhecer o seu carro.', 'To calculate how long and how much it costs, the app needs to know your car.')}</div>
         <div className="c">
-          <Empty>Você ainda não cadastrou um veículo.</Empty>
+          <Empty>{t('Você ainda não cadastrou um veículo.', "You haven't added a vehicle yet.")}</Empty>
           <button className="btn btn-primary" onClick={() => go('perfil')}>
-            Cadastrar meu carro
+            {t('Cadastrar meu carro', 'Add my car')}
           </button>
         </div>
       </div>
@@ -375,33 +378,32 @@ export default function Agendar({ go }: { go: (t: Tab) => void }) {
       <div className="screen-anim">
         <div className="success">
           <div className="ring">{I.check}</div>
-          <h2>{scheduled ? 'Reserva confirmada!' : 'Combinado!'}</h2>
+          <h2>{scheduled ? t('Reserva confirmada!', 'Booking confirmed!') : t('Combinado!', 'All set!')}</h2>
           {scheduled && done.startSoc === null && done.stationKind === 'PARCEIRO' ? (
             <p>
               {fmtDay(done.startsAt!)} · {fmtTime(done.startsAt!)} às ~{fmtTime(done.endsAt!)}, {goalLabel(done)}
-              {done.estimatedCostCents !== null && <> — estimado até {fmtBRL(done.estimatedCostCents)}</>}.
+              {done.estimatedCostCents !== null && <> — {t('estimado até', 'estimated up to')} {fmtBRL(done.estimatedCostCents)}</>}.
             </p>
           ) : scheduled && done.startSoc === null ? (
             <p>
-              {fmtDay(done.startsAt!)} · {fmtTime(done.startsAt!)} às ~{fmtTime(done.endsAt!)}, {goalLabel(done)}. Quando o{' '}
-              {vehicle.model} plugar, a gente lê a bateria e ajusta o fim da reserva
-              {done.estimatedCostCents !== null && <> — estimado até {fmtBRL(done.estimatedCostCents)}</>}.
+              {fmtDay(done.startsAt!)} · {fmtTime(done.startsAt!)} {t('às', 'at')} ~{fmtTime(done.endsAt!)}, {goalLabel(done)}. {t('Quando o', 'When the')}{' '}
+              {vehicle.model} {t('plugar, a gente lê a bateria e ajusta o fim da reserva', 'plugs in, we read the battery and adjust the end of the booking')}
+              {done.estimatedCostCents !== null && <> — {t('estimado até', 'estimated up to')} {fmtBRL(done.estimatedCostCents)}</>}.
             </p>
           ) : scheduled && done.stationKind === 'PARCEIRO' ? (
             <p>
-              {fmtDay(done.startsAt!)} · {fmtTime(done.startsAt!)} às ~{fmtTime(done.endsAt!)}, de {done.startSoc}% a {done.targetSoc}%
-              {done.estimatedCostCents !== null && <> — estimado {fmtBRL(done.estimatedCostCents)}</>}.
+              {fmtDay(done.startsAt!)} · {fmtTime(done.startsAt!)} {t('às', 'at')} ~{fmtTime(done.endsAt!)}, {t('de', 'from')} {done.startSoc}% {t('a', 'to')} {done.targetSoc}%
+              {done.estimatedCostCents !== null && <> — {t('estimado', 'estimated')} {fmtBRL(done.estimatedCostCents)}</>}.
             </p>
           ) : scheduled ? (
             <p>
-              {fmtDay(done.startsAt!)} · {fmtTime(done.startsAt!)} às {fmtTime(done.endsAt!)}. Seu {vehicle.model} sai com{' '}
-              {done.targetSoc}%. Custo estimado {fmtBRL(done.estimatedCostCents ?? 0)} — o valor final sai da energia
-              medida na sessão.
+              {fmtDay(done.startsAt!)} · {fmtTime(done.startsAt!)} {t('às', 'at')} {fmtTime(done.endsAt!)}. {t('Seu', 'Your')} {vehicle.model} {t('sai com', 'leaves with')}{' '}
+              {done.targetSoc}%. {t('Custo estimado', 'Estimated cost')} {fmtBRL(done.estimatedCostCents ?? 0)}. {t('O valor final sai da energia medida na sessão.', 'The final amount comes from the energy measured in the session.')}
             </p>
           ) : (
             <p>
-              Assim que o {vehicle.model} plugar no carregador, o Volt escolhe sozinho o horário mais barato pra chegar a{' '}
-              {done.targetSoc}% até {fmtDay(done.deadlineAt)} às {fmtTime(done.deadlineAt)}.
+              {t('Assim que o', 'As soon as the')} {vehicle.model} {t('plugar no carregador, o Volt escolhe sozinho o horário mais barato pra chegar a', 'plugs into the charger, Volt picks the cheapest time on its own to reach')}{' '}
+              {done.targetSoc}% {t('até', 'by')} {fmtDay(done.deadlineAt)} {t('às', 'at')} {fmtTime(done.deadlineAt)}.
             </p>
           )}
           {done.stationName && (
@@ -423,7 +425,7 @@ export default function Agendar({ go }: { go: (t: Tab) => void }) {
               reset()
             }}
           >
-            Fazer outra reserva
+            {t('Fazer outra reserva', 'Make another booking')}
           </button>
         </div>
       </div>
@@ -462,10 +464,10 @@ export default function Agendar({ go }: { go: (t: Tab) => void }) {
       starts.reload()
     })
 
-  const pickedLabel = activeSlot ? (activeSlot.now ? 'agora' : `${days[day].w} ${fmtTime(activeSlot.startsAt)}`) : null
+  const pickedLabel = activeSlot ? (activeSlot.now ? t('agora', 'now') : `${days[day].w} ${fmtTime(activeSlot.startsAt)}`) : null
 
   const cancel = (id: string) => {
-    if (!confirm('Cancelar essa reserva?')) return
+    if (!confirm(t('Cancelar essa reserva?', 'Cancel this booking?'))) return
     void action.run(async () => {
       await api(`/api/reservations/${id}`, { method: 'DELETE' })
       mine.reload()
@@ -478,19 +480,19 @@ export default function Agendar({ go }: { go: (t: Tab) => void }) {
 
   return (
     <div className="screen-anim">
-      <div className="screen-title">Agendar recarga</div>
-      <div className="screen-sub">Defina quanto carregar e quando. As horas mais baratas ficam em destaque.</div>
+      <div className="screen-title">{t('Agendar recarga', 'Book a charge')}</div>
+      <div className="screen-sub">{t('Defina quanto carregar e quando. As horas mais baratas ficam em destaque.', 'Set how much to charge and when. The cheapest hours are highlighted.')}</div>
 
       {busyByOther && (
         <div className="c">
-          <div className="c-label">Carregador do condomínio</div>
+          <div className="c-label">{t('Carregador do condomínio', "Building's charger")}</div>
           <div className="live-soc" style={{ marginTop: 0 }}>
-            <span className="dot" /> <b>{occupant.data!.name}</b> está carregando agora
+            <span className="dot" /> <b>{occupant.data!.name}</b> {t('está carregando agora', 'is charging now')}
           </div>
         </div>
       )}
 
-      {!stations.data && (stations.error ? <ErrorBox error={stations.error} /> : <div className="empty-slots">Carregando…</div>)}
+      {!stations.data && (stations.error ? <ErrorBox error={stations.error} /> : <div className="empty-slots">{t('Carregando…', 'Loading…')}</div>)}
 
       {pluggedIn && (
         <div className="mode-picker">
@@ -502,8 +504,8 @@ export default function Agendar({ go }: { go: (t: Tab) => void }) {
             }}
           >
             <span className="ic">{I.bolt}</span>
-            <span className="t">Já plugado</span>
-            <span className="s">carro na tomada</span>
+            <span className="t">{t('Já plugado', 'Already plugged in')}</span>
+            <span className="s">{t('carro na tomada', 'car is plugged in')}</span>
           </button>
           <button
             className={`mode-card ${mode === 'later' ? 'on' : ''}`}
@@ -513,15 +515,15 @@ export default function Agendar({ go }: { go: (t: Tab) => void }) {
             }}
           >
             <span className="ic">{I.cal}</span>
-            <span className="t">Pra depois</span>
-            <span className="s">ainda vou plugar</span>
+            <span className="t">{t('Pra depois', 'For later')}</span>
+            <span className="s">{t('ainda vou plugar', 'I will plug in later')}</span>
           </button>
         </div>
       )}
 
       {mode === 'now' && pluggedIn && liveSoc !== null && liveSoc >= 99 && (
         <div className="c">
-          <Empty>Seu carro já está com a bateria praticamente cheia ({liveSoc}%). Nada pra agendar agora.</Empty>
+          <Empty>{t('Seu carro já está com a bateria praticamente cheia', 'Your car battery is almost full')} ({liveSoc}%). {t('Nada pra agendar agora.', 'Nothing to book now.')}</Empty>
         </div>
       )}
 
@@ -538,16 +540,16 @@ export default function Agendar({ go }: { go: (t: Tab) => void }) {
                   ))}
                 </select>
               ) : (
-                `Seu carro · ${vehicle.model}`
+                `${t('Seu carro', 'Your car')} · ${vehicle.model}`
               )}
             </div>
             <BatteryGauge vehicle={vehicle} soc={liveSoc} target={preview?.targetSoc ?? activeTargetNow} go={go} />
             {liveSoc !== null && (
               <div className="live-soc">
-                <span className="dot" /> bateria agora <b>{socLabel(vehicle, liveSoc)}</b>
+                <span className="dot" /> {t('bateria agora', 'battery now')} <b>{socLabel(vehicle, liveSoc)}</b>
               </div>
             )}
-            <div className="soc-now-meta">Quanto carregar</div>
+            <div className="soc-now-meta">{t('Quanto carregar', 'How much to charge')}</div>
             <GoalPicker
               vehicle={vehicle}
               goal={goalNow}
@@ -559,26 +561,26 @@ export default function Agendar({ go }: { go: (t: Tab) => void }) {
           </div>
 
           <div className="c">
-            <div className="c-label">Começa agora</div>
-            {!preview && !nowPreview.error && <div className="empty-slots">Calculando…</div>}
+            <div className="c-label">{t('Começa agora', 'Starts now')}</div>
+            {!preview && !nowPreview.error && <div className="empty-slots">{t('Calculando…', 'Calculating…')}</div>}
             {nowPreview.error && <ErrorBox error={nowPreview.error} onRetry={nowPreview.reload} />}
             {preview && !preview.window && (
-              <div className="empty-slots">O carregador está reservado logo em seguida — escolhe uma meta menor.</div>
+              <div className="empty-slots">{t('O carregador está reservado logo em seguida — escolhe uma meta menor.', 'The charger is reserved right after — pick a smaller target.')}</div>
             )}
             {preview?.window && (
               <div className="confirm-summary">
                 <CostHero cents={preview.window.costCents} level={preview.window.level} />
                 <div className="row">
-                  <span>Carga</span>
+                  <span>{t('Carga', 'Charge')}</span>
                   <b>
                     {fmtKwh(preview.energyKwh)}
                     {kmFor(vehicle, preview.energyKwh) !== null && ` · +${kmFor(vehicle, preview.energyKwh)} km`}
                   </b>
                 </div>
                 <div className="row">
-                  <span>Pronto</span>
+                  <span>{t('Pronto', 'Ready')}</span>
                   <b>
-                    {fmtDay(preview.window.end)} às {preview.soc === null ? '~' : ''}
+                    {fmtDay(preview.window.end)} {t('às', 'at')} {preview.soc === null ? '~' : ''}
                     {fmtTime(preview.window.end)}
                   </b>
                 </div>
@@ -588,13 +590,13 @@ export default function Agendar({ go }: { go: (t: Tab) => void }) {
 
           {action.error && <div className="login-error">{action.error}</div>}
           <button className="btn btn-primary" onClick={confirmNow} disabled={action.busy || !preview?.window} style={{ width: '100%' }}>
-            {action.busy ? 'Iniciando…' : 'Começar recarga'}
+            {action.busy ? t('Iniciando…', 'Starting…') : t('Começar recarga', 'Start charge')}
           </button>
         </>
       )}
 
       {mode === 'later' && stations.data && places.length === 0 && (
-        <ErrorBox error="Nenhum carregador disponível pra reserva. Fale com o gestor do condomínio." />
+        <ErrorBox error={t('Nenhum carregador disponível pra reserva. Fale com o gestor do condomínio.', 'No charger available to book. Talk to the building manager.')} />
       )}
 
       {mode === 'later' && place && (
@@ -606,17 +608,16 @@ export default function Agendar({ go }: { go: (t: Tab) => void }) {
               ))}
             </div>
             <div className="wiz-step-label">
-              Passo {wizardStep + 1} de {WIZARD_LABELS.length} · {WIZARD_LABELS[wizardStep]}
+              {t('Passo', 'Step')} {wizardStep + 1} {t('de', 'of')} {WIZARD_LABELS.length} · {WIZARD_LABELS[wizardStep]}
             </div>
           </div>
 
           {wizardStep === 0 && (
             <div className="c">
-              <div className="c-label">Onde carregar · {place.station.name}</div>
+              <div className="c-label">{t('Onde carregar', 'Where to charge')} · {place.station.name}</div>
               {!places.some((p) => p.own) && (
                 <div className="empty-slots" style={{ marginBottom: 10 }}>
-                  Sua unidade ainda não tem um carregador de condomínio vinculado — por enquanto só aparecem os parceiros da rede. Fale com o
-                  gestor pra vincular.
+                  {t('Sua unidade ainda não tem um carregador de condomínio vinculado — por enquanto só aparecem os parceiros da rede. Fale com o gestor pra vincular.', 'Your unit has no building charger linked yet, so only network partners show up for now. Talk to the manager to link one.')}
                 </div>
               )}
               <div className="place-list">
@@ -624,9 +625,9 @@ export default function Agendar({ go }: { go: (t: Tab) => void }) {
                   const s = p.station
                   const power = Math.max(...s.chargers.map((c) => Number(c.maxPowerKw)))
                   const price = p.own
-                    ? 'tarifa dinâmica'
+                    ? t('tarifa dinâmica', 'dynamic rate')
                     : s.publicPriceCentsKwh !== null
-                      ? `base ${fmtBRL(s.publicPriceCentsKwh)}/kWh`
+                      ? `${t('base', 'base')} ${fmtBRL(s.publicPriceCentsKwh)}/kWh`
                       : null
                   return (
                     <button
@@ -639,7 +640,7 @@ export default function Agendar({ go }: { go: (t: Tab) => void }) {
                         <span className="place-name">{s.name}</span>
                         <span className="place-addr">
                           {I.pin}
-                          {s.address ?? 'endereço não informado'}
+                          {s.address ?? t('endereço não informado', 'address not provided')}
                         </span>
                         <span className="place-meta">
                           {[`${fmtNum(power, 0)} kW`, price, s.openingHours, p.km !== null ? fmtDistance(p.km) : null]
@@ -656,7 +657,7 @@ export default function Agendar({ go }: { go: (t: Tab) => void }) {
 
           {wizardStep === 1 && (
             <div className="c">
-              <div className="c-label">Quando · {pickedLabel ?? 'escolhe um horário'}</div>
+              <div className="c-label">{t('Quando', 'When')} · {pickedLabel ?? t('escolhe um horário', 'pick a time')}</div>
               <div className="day-chips" style={{ marginBottom: 18 }}>
                 {days.map((d, i) => {
                   const full = slotsData !== null && !slotsByDay[i].some((s) => s.free)
@@ -677,20 +678,20 @@ export default function Agendar({ go }: { go: (t: Tab) => void }) {
               </div>
 
               {starts.error && <ErrorBox error={starts.error} />}
-              {!starts.error && !slotsData && <div className="empty-slots">Buscando os horários livres…</div>}
+              {!starts.error && !slotsData && <div className="empty-slots">{t('Buscando os horários livres…', 'Looking up free times…')}</div>}
               {slotsData && freeDaySlots.length === 0 && (
                 <div className="empty-slots">
                   {daySlots.length > 0
-                    ? `Nenhum horário livre ${day < 2 ? days[day].w : 'nesse dia'} — escolhe outro.`
+                    ? t(`Nenhum horário livre ${day < 2 ? days[day].w : 'nesse dia'} — escolhe outro.`, `No free time ${day < 2 ? days[day].w : 'that day'} — pick another.`)
                     : day === 0
-                      ? 'Não dá mais pra começar hoje aqui — escolhe outro dia.'
-                      : `${place.station.name} não abre nesse dia (${place.station.openingHours}).`}
+                      ? t('Não dá mais pra começar hoje aqui — escolhe outro dia.', "Can't start today here anymore — pick another day.")
+                      : t(`${place.station.name} não abre nesse dia (${place.station.openingHours}).`, `${place.station.name} is closed that day (${place.station.openingHours}).`)}
                 </div>
               )}
               {slotsData && activeSlot && freeDaySlots.length > 0 && (
                 <div className="time-slider-wrap">
                   <div className="time-slider-bubble" style={{ left: `${sliderPct}%` }}>
-                    <span>{activeSlot.now ? 'Agora' : fmtTime(activeSlot.startsAt)}</span>
+                    <span>{activeSlot.now ? t('Agora', 'Now') : fmtTime(activeSlot.startsAt)}</span>
                     {activeSlot.costCents !== null && <span className={`price ${activeSlot.level}`}>{fmtBRL(activeSlot.costCents)}</span>}
                   </div>
                   <input
@@ -708,7 +709,7 @@ export default function Agendar({ go }: { go: (t: Tab) => void }) {
 
               <div className="wiz-nav">
                 <button className="btn btn-ghost" onClick={() => setWizardStep(0)}>
-                  Voltar
+                  {t('Voltar', 'Back')}
                 </button>
                 <button
                   className="btn btn-primary"
@@ -718,7 +719,7 @@ export default function Agendar({ go }: { go: (t: Tab) => void }) {
                     setWizardStep(2)
                   }}
                 >
-                  Continuar
+                  {t('Continuar', 'Continue')}
                 </button>
               </div>
             </div>
@@ -736,11 +737,11 @@ export default function Agendar({ go }: { go: (t: Tab) => void }) {
                     ))}
                   </select>
                 ) : (
-                  `Seu carro · ${vehicle.model}`
+                  `${t('Seu carro', 'Your car')} · ${vehicle.model}`
                 )}
               </div>
               <BatteryGauge vehicle={vehicle} soc={null} target={laterSoc} go={go} />
-              <div className="soc-now-meta">Quanto carregar</div>
+              <div className="soc-now-meta">{t('Quanto carregar', 'How much to charge')}</div>
               <GoalPicker
                 vehicle={vehicle}
                 goal={goalLater}
@@ -756,10 +757,10 @@ export default function Agendar({ go }: { go: (t: Tab) => void }) {
               />
               <div className="wiz-nav">
                 <button className="btn btn-ghost" onClick={() => setWizardStep(1)}>
-                  Voltar
+                  {t('Voltar', 'Back')}
                 </button>
                 <button className="btn btn-primary" onClick={() => setWizardStep(3)}>
-                  Continuar
+                  {t('Continuar', 'Continue')}
                 </button>
               </div>
             </div>
@@ -767,43 +768,43 @@ export default function Agendar({ go }: { go: (t: Tab) => void }) {
 
           {wizardStep === 3 && (
             <div className="c">
-              <div className="c-label">Confirmar reserva</div>
-              {(!slotsData || starts.loading) && <div className="empty-slots">Recalculando os horários pro novo alvo de bateria…</div>}
+              <div className="c-label">{t('Confirmar reserva', 'Confirm booking')}</div>
+              {(!slotsData || starts.loading) && <div className="empty-slots">{t('Recalculando os horários pro novo alvo de bateria…', 'Recalculating times for the new battery target…')}</div>}
               {slotsData && !starts.loading && !activeSlot && (
-                <div className="empty-slots">Nenhum horário livre nesse dia pra essa meta — volta e escolhe outro.</div>
+                <div className="empty-slots">{t('Nenhum horário livre nesse dia pra essa meta — volta e escolhe outro.', 'No free time that day for this target — go back and pick another.')}</div>
               )}
               {slotsData && !starts.loading && activeSlot && (
                 <>
                   {slotPick && !chosen && (
                     <div className="empty-slots" style={{ marginBottom: 12 }}>
-                      O horário que você escolheu não cabe mais com essa meta — sugerimos o mais barato do dia.
+                      {t('O horário que você escolheu não cabe mais com essa meta — sugerimos o mais barato do dia.', "The time you picked doesn't fit this target anymore — we suggest the cheapest of the day.")}
                     </div>
                   )}
                   <div className="confirm-summary">
                     {activeSlot.costCents !== null && <CostHero cents={activeSlot.costCents} level={activeSlot.level} />}
                     <div className="row">
-                      <span>Local</span>
+                      <span>{t('Local', 'Place')}</span>
                       <b>{place.station.name}</b>
                     </div>
                     <div className="row">
-                      <span>Quando</span>
+                      <span>{t('Quando', 'When')}</span>
                       <b>
-                        {activeSlot.now ? 'Agora' : `${fmtDay(activeSlot.startsAt)} · ${fmtTime(activeSlot.startsAt)}`} às ~
+                        {activeSlot.now ? t('Agora', 'Now') : `${fmtDay(activeSlot.startsAt)} · ${fmtTime(activeSlot.startsAt)}`} {t('às', 'at')} ~
                         {fmtTime(activeSlot.endsAt)}
                       </b>
                     </div>
                     {goalLater.kind === 'SOC' ? (
                       <div className="row">
-                        <span>Bateria</span>
+                        <span>{t('Bateria', 'Battery')}</span>
                         <b>
                           {slotsData.socDeclared
                             ? `${slotsData.assumedStartSoc}% → ${socLabel(vehicle, goalLater.value)}`
-                            : `meta ${socLabel(vehicle, goalLater.value)}`}
+                            : `${t('meta', 'target')} ${socLabel(vehicle, goalLater.value)}`}
                         </b>
                       </div>
                     ) : (
                       <div className="row">
-                        <span>{goalLater.kind === 'BRL' ? `Até ${fmtBRL(goalLater.value)}` : 'Carga'}</span>
+                        <span>{goalLater.kind === 'BRL' ? `${t('Até', 'Up to')} ${fmtBRL(goalLater.value)}` : t('Carga', 'Charge')}</span>
                         <b>
                           {fmtKwh(activeSlot.energyKwh)}
                           {kmFor(vehicle, activeSlot.energyKwh) !== null && ` · +${kmFor(vehicle, activeSlot.energyKwh)} km`}
@@ -815,12 +816,12 @@ export default function Agendar({ go }: { go: (t: Tab) => void }) {
                   {cheaperAlternatives.length > 0 && (
                     <>
                       <div className="c-label" style={{ marginTop: 16 }}>
-                        Horários mais baratos {day === 0 ? 'hoje' : `em ${days[day].w}`}
+                        {t('Horários mais baratos', 'Cheapest times')} {day === 0 ? t('hoje', 'today') : `${t('em', 'on')} ${days[day].w}`}
                       </div>
                       <div className="alt-slots">
                         {cheaperAlternatives.map((s) => (
                           <button key={slotKey(s)} className="alt-slot" onClick={() => setSlotPick(slotKey(s))}>
-                            <span className="t">{s.now ? 'Agora' : fmtTime(s.startsAt)}</span>
+                            <span className="t">{s.now ? t('Agora', 'Now') : fmtTime(s.startsAt)}</span>
                             {s.costCents !== null && <span className={`est ${s.level}`}>{fmtBRL(s.costCents)}</span>}
                           </button>
                         ))}
@@ -831,7 +832,7 @@ export default function Agendar({ go }: { go: (t: Tab) => void }) {
               )}
               <div className="wiz-nav">
                 <button className="btn btn-ghost" onClick={() => setWizardStep(2)}>
-                  Voltar
+                  {t('Voltar', 'Back')}
                 </button>
               </div>
             </div>
@@ -845,15 +846,15 @@ export default function Agendar({ go }: { go: (t: Tab) => void }) {
               disabled={action.busy || !activeSlot}
               style={{ width: '100%' }}
             >
-              {action.busy ? 'Agendando…' : pickedLabel ? `Agendar · ${pickedLabel}` : 'Escolhe um horário'}
+              {action.busy ? t('Agendando…', 'Booking…') : pickedLabel ? `${t('Agendar', 'Book')} · ${pickedLabel}` : t('Escolhe um horário', 'Pick a time')}
             </button>
           )}
         </>
       )}
 
       <div className="c" style={{ marginTop: 18 }}>
-        <div className="c-label">Minhas reservas</div>
-        {upcoming.length === 0 && <Empty>Nenhuma reserva futura.</Empty>}
+        <div className="c-label">{t('Minhas reservas', 'My bookings')}</div>
+        {upcoming.length === 0 && <Empty>{t('Nenhuma reserva futura.', 'No upcoming bookings.')}</Empty>}
         <div className="resv-list">
           {upcoming.map((r) => (
             <ReservationCard
@@ -861,7 +862,7 @@ export default function Agendar({ go }: { go: (t: Tab) => void }) {
               r={r}
               action={
                 <button className="btn btn-ghost btn-sm" disabled={action.busy} onClick={() => cancel(r.id)}>
-                  Cancelar
+                  {t('Cancelar', 'Cancel')}
                 </button>
               }
             />

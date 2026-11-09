@@ -1,3 +1,5 @@
+import { isEn, labels, list, locale, t } from './i18n'
+
 /**
  * Formatação no fuso do condomínio (America/Sao_Paulo) — o mesmo em que o backend corta
  * slots e ciclos —, independente do fuso do navegador.
@@ -5,8 +7,11 @@
 const TZ = 'America/Sao_Paulo'
 const HOUR_MS = 3_600_000
 
-export const WEEKDAYS = ['seg', 'ter', 'qua', 'qui', 'sex', 'sáb', 'dom']
-const MONTHS = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro']
+export const WEEKDAYS = list(['seg', 'ter', 'qua', 'qui', 'sex', 'sáb', 'dom'], ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'])
+const MONTHS = list(
+  ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'],
+  ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'],
+)
 
 const partsFmt = new Intl.DateTimeFormat('en-US', {
   timeZone: TZ,
@@ -51,11 +56,11 @@ export function fromLocal(year: number, month: number, day: number, hour = 0, mi
 const pad = (n: number) => String(n).padStart(2, '0')
 
 export const fmtBRL = (cents: number) =>
-  `R$ ${(cents / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+  `R$ ${(cents / 100).toLocaleString(locale(), { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 export const fmtKwh = (v: number, digits = 1) =>
-  `${v.toLocaleString('pt-BR', { minimumFractionDigits: digits, maximumFractionDigits: digits })} kWh`
+  `${v.toLocaleString(locale(), { minimumFractionDigits: digits, maximumFractionDigits: digits })} kWh`
 export const fmtNum = (v: number, digits = 1) =>
-  v.toLocaleString('pt-BR', { minimumFractionDigits: digits, maximumFractionDigits: digits })
+  v.toLocaleString(locale(), { minimumFractionDigits: digits, maximumFractionDigits: digits })
 export const fmtPct = (v: number) => `${Math.round(v * 100)}%`
 export const fmtMult = (v: number) => `${fmtNum(v, 2)}×`
 
@@ -66,7 +71,7 @@ export function fmtTime(d: Date | string) {
 
 export function fmtDate(d: Date | string) {
   const l = local(d)
-  return `${pad(l.day)}/${pad(l.month)}`
+  return isEn() ? `${pad(l.month)}/${pad(l.day)}` : `${pad(l.day)}/${pad(l.month)}`
 }
 
 export function fmtDateTime(d: Date | string) {
@@ -78,10 +83,10 @@ export function fmtDay(d: Date | string, now = new Date()) {
   const a = local(d)
   const b = local(now)
   const diff = Math.round((Date.UTC(a.year, a.month - 1, a.day) - Date.UTC(b.year, b.month - 1, b.day)) / 86_400_000)
-  if (diff === 0) return 'hoje'
-  if (diff === -1) return 'ontem'
-  if (diff === 1) return 'amanhã'
-  return `${WEEKDAYS[a.weekday]} ${pad(a.day)}/${pad(a.month)}`
+  if (diff === 0) return t('hoje', 'today')
+  if (diff === -1) return t('ontem', 'yesterday')
+  if (diff === 1) return t('amanhã', 'tomorrow')
+  return `${WEEKDAYS[a.weekday]} ${fmtDate(d)}`
 }
 
 export function fmtMinutes(min: number) {
@@ -107,7 +112,7 @@ export function shiftPeriod(period: string, months: number) {
 
 export function periodLabel(period: string) {
   const [y, m] = period.split('-').map(Number)
-  return `${MONTHS[m - 1]} de ${y}`
+  return isEn() ? `${MONTHS[m - 1]} ${y}` : `${MONTHS[m - 1]} de ${y}`
 }
 
 export function monthName(period: string) {
@@ -116,26 +121,26 @@ export function monthName(period: string) {
 
 export function fmtDueDate(iso: string) {
   const [, m, d] = iso.split('-')
-  return `${d}/${m}`
+  return isEn() ? `${m}/${d}` : `${d}/${m}`
 }
 
-export const LEVEL_LABEL = { cheap: 'Barato', mid: 'Normal', peak: 'Pico' } as const
+export const LEVEL_LABEL = labels({ cheap: ['Barato', 'Cheap'], mid: ['Normal', 'Normal'], peak: ['Pico', 'Peak'] })
 
-export const STATE_LABEL = {
-  OPEN: 'Ciclo aberto',
-  PENDING: 'A pagar',
-  PAID: 'Paga',
-  OVERDUE: 'Vencida',
-  EXEMPT: 'Isento',
-} as const
+export const STATE_LABEL = labels({
+  OPEN: ['Ciclo aberto', 'Open cycle'],
+  PENDING: ['A pagar', 'Due'],
+  PAID: ['Paga', 'Paid'],
+  OVERDUE: ['Vencida', 'Overdue'],
+  EXEMPT: ['Isento', 'Exempt'],
+})
 export const STATE_TAG = { OPEN: 'dim', PENDING: 'mid', PAID: 'cheap', OVERDUE: 'peak', EXEMPT: 'dim' } as const
 
-export const CHARGE_LABEL = {
-  PENDING: 'Em aberto',
-  OVERDUE: 'Vencida',
-  RECEIVED: 'Recebida',
-  CANCELLED: 'Cancelada',
-  REFUNDED: 'Estornada',
-} as const
+export const CHARGE_LABEL = labels({
+  PENDING: ['Em aberto', 'Open'],
+  OVERDUE: ['Vencida', 'Overdue'],
+  RECEIVED: ['Recebida', 'Received'],
+  CANCELLED: ['Cancelada', 'Cancelled'],
+  REFUNDED: ['Estornada', 'Refunded'],
+})
 export const CHARGE_TAG = { PENDING: 'mid', OVERDUE: 'peak', RECEIVED: 'cheap', CANCELLED: 'dim', REFUNDED: 'dim' } as const
 export const METHOD_LABEL = { PIX: 'Pix', BOLETO: 'Boleto' } as const

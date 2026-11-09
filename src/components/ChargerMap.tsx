@@ -13,6 +13,7 @@ import {
   type PointKind,
 } from '../lib/chargePoints'
 import { useChargePoints } from '../lib/chargePointsHook'
+import { t } from '../lib/i18n'
 
 type Props = {
   /** quando presente, mostra a ação do ponto (app do morador) */
@@ -34,11 +35,11 @@ type Filter = 'todos' | PointKind
 /** tempo em cada ponto no modo automático */
 const AUTOPLAY_MS = 3500
 
-const FILTERS: { id: Filter; label: string }[] = [
-  { id: 'todos', label: 'Todos' },
-  { id: 'condominio', label: 'Condomínios' },
-  { id: 'parceiro', label: 'Parceiros' },
-  { id: 'publico', label: 'Públicos' },
+const filterOptions = (): { id: Filter; label: string }[] => [
+  { id: 'todos', label: t('Todos', 'All') },
+  { id: 'condominio', label: t('Condomínios', 'Buildings') },
+  { id: 'parceiro', label: t('Parceiros', 'Partners') },
+  { id: 'publico', label: t('Públicos', 'Public') },
 ]
 
 /** pino com o raio do Chargefy, desenhado como divIcon do Leaflet */
@@ -194,7 +195,9 @@ export default function ChargerMap({ onChoose, chooseLabel, activeId, height = 4
   if (!point) {
     return (
       <div className="cmap empty-card">
-        {loading ? 'Carregando pontos de recarga…' : 'Nenhum ponto de recarga cadastrado ainda. O gestor cadastra em Painel do gestor → Cadastros.'}
+        {loading
+          ? t('Carregando pontos de recarga…', 'Loading charging points…')
+          : t('Nenhum ponto de recarga cadastrado ainda. O gestor cadastra em Painel do gestor → Cadastros.', 'No charging points registered yet. The manager adds them in Dashboard → Records.')}
       </div>
     )
   }
@@ -210,14 +213,15 @@ export default function ChargerMap({ onChoose, chooseLabel, activeId, height = 4
         <div className="cmap-bar-stat">
           {totalPlugs > 0 ? (
             <>
-              <b>{totalFree}</b> de {totalPlugs} {totalPlugs === 1 ? 'tomada monitorada livre' : 'tomadas monitoradas livres'} agora
+              <b>{totalFree}</b> {t('de', 'of')} {totalPlugs}{' '}
+              {totalPlugs === 1 ? t('tomada monitorada livre', 'monitored plug free') : t('tomadas monitoradas livres', 'monitored plugs free')} {t('agora', 'now')}
             </>
           ) : (
-            <>{points.length} pontos de recarga</>
+            <>{points.length} {t('pontos de recarga', 'charging points')}</>
           )}
         </div>
         <div className="cmap-filters">
-          {FILTERS.filter((f) => f.id !== 'condominio' || hasOtherCondos).map((f) => (
+          {filterOptions().filter((f) => f.id !== 'condominio' || hasOtherCondos).map((f) => (
             <button key={f.id} className={`cmap-filter ${filter === f.id ? 'on' : ''}`} onClick={() => setFilter(f.id)}>
               {f.label}
             </button>
@@ -233,35 +237,35 @@ export default function ChargerMap({ onChoose, chooseLabel, activeId, height = 4
         <div className={`cmap-detail ${point.kind}`}>
           <div className="cd-top">
             <span className={`cmap-kind ${point.kind}`}>{KIND_LABEL[point.kind]}</span>
-            {point.id === activeId && <span className="cd-active">local atual</span>}
+            {point.id === activeId && <span className="cd-active">{t('local atual', 'current spot')}</span>}
           </div>
           <div className="cmap-name">{point.name}</div>
           <div className="cmap-addr">{point.address}</div>
 
           <div className="cd-grid">
             <div>
-              <span className="k">Disponível</span>
+              <span className="k">{t('Disponível', 'Available')}</span>
               <span className={`v ${point.free === 0 ? 'busy' : point.free === null ? '' : 'free'}`}>{fmtFree(point)}</span>
             </div>
             <div>
-              <span className="k">Potência</span>
+              <span className="k">{t('Potência', 'Power')}</span>
               <span className="v">{point.power} kW</span>
             </div>
             <div>
-              <span className="k">Tarifa</span>
+              <span className="k">{t('Tarifa', 'Rate')}</span>
               <span className="v">
                 {fmtPrice(point)}
-                {point.kind === 'seu' && point.price !== null && <small> agora</small>}
+                {point.kind === 'seu' && point.price !== null && <small> {t('agora', 'now')}</small>}
               </span>
             </div>
             <div>
-              <span className="k">Distância</span>
-              <span className="v">{point.id === HOME.id ? 'aqui' : fmtDistance(km)}</span>
+              <span className="k">{t('Distância', 'Distance')}</span>
+              <span className="v">{point.id === HOME.id ? t('aqui', 'here') : fmtDistance(km)}</span>
             </div>
           </div>
 
           <div className="cd-hours">
-            {[point.hours, point.id !== HOME.id && `${walkMinutes(km)} min a pé`].filter(Boolean).join(' · ')}
+            {[point.hours, point.id !== HOME.id && `${walkMinutes(km)} ${t('min a pé', 'min walk')}`].filter(Boolean).join(' · ')}
           </div>
 
           {onChoose && (
@@ -269,7 +273,7 @@ export default function ChargerMap({ onChoose, chooseLabel, activeId, height = 4
               className="btn btn-primary btn-sm cmap-cta"
               onClick={() => onChoose(point)}
             >
-              {chooseLabel?.(point) ?? 'Escolher'}
+              {chooseLabel?.(point) ?? t('Escolher', 'Choose')}
             </button>
           )}
         </div>
@@ -277,24 +281,24 @@ export default function ChargerMap({ onChoose, chooseLabel, activeId, height = 4
 
       <div className="cmap-legend">
         <span>
-          <i style={{ background: KIND_COLOR.seu }} /> Seu condomínio
+          <i style={{ background: KIND_COLOR.seu }} /> {t('Seu condomínio', 'Your building')}
         </span>
         {hasOtherCondos && (
           <span>
-            <i style={{ background: KIND_COLOR.condominio }} /> Condomínio da rede
+            <i style={{ background: KIND_COLOR.condominio }} /> {t('Condomínio da rede', 'Network building')}
           </span>
         )}
         <span>
-          <i style={{ background: KIND_COLOR.parceiro }} /> Parceiro da rede
+          <i style={{ background: KIND_COLOR.parceiro }} /> {t('Parceiro da rede', 'Network partner')}
         </span>
         <span>
-          <i style={{ background: KIND_COLOR.publico }} /> Público
+          <i style={{ background: KIND_COLOR.publico }} /> {t('Público', 'Public')}
         </span>
-        <span className="cmap-legend-hint">o número no pino é quantas tomadas estão livres</span>
+        <span className="cmap-legend-hint">{t('o número no pino é quantas tomadas estão livres', 'the number on the pin is how many plugs are free')}</span>
       </div>
 
       <div className={`cmap-strip-wrap ${paused ? 'paused' : ''}`}>
-        <button className="strip-nav prev" onClick={() => nudge(-1)} aria-label="Ver pontos anteriores">
+        <button className="strip-nav prev" onClick={() => nudge(-1)} aria-label={t('Ver pontos anteriores', 'Previous points')}>
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
             <path d="m15 6-6 6 6 6" />
           </svg>
@@ -319,7 +323,7 @@ export default function ChargerMap({ onChoose, chooseLabel, activeId, height = 4
                     <span className="sp-sep" />
                   </>
                 )}
-                <span>{p.id === HOME.id ? 'aqui' : fmtDistance(p.km)}</span>
+                <span>{p.id === HOME.id ? t('aqui', 'here') : fmtDistance(p.km)}</span>
                 <span className="sp-sep" />
                 <span>{fmtPrice(p)}</span>
               </span>
@@ -327,7 +331,7 @@ export default function ChargerMap({ onChoose, chooseLabel, activeId, height = 4
           ))}
         </div>
 
-        <button className="strip-nav next" onClick={() => nudge(1)} aria-label="Ver próximos pontos">
+        <button className="strip-nav next" onClick={() => nudge(1)} aria-label={t('Ver próximos pontos', 'Next points')}>
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
             <path d="m9 6 6 6-6 6" />
           </svg>

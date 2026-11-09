@@ -16,6 +16,7 @@ import { useApi } from '../../../lib/useApi'
 import { ChargeView } from '../Pagamento'
 import FaturaDetalhe from './FaturaDetalhe'
 import { Empty, ErrorBox, Loading, Modal } from '../ui'
+import { t } from '../../../lib/i18n'
 
 type Listed = ChargesOfPeriod['charges'][number]
 
@@ -47,8 +48,8 @@ export default function Cobrancas({ period, canWrite, goRateio }: { period: stri
   const activeOf = (invoiceId: string) =>
     (byInvoice.get(invoiceId) ?? []).filter((ch) => ch.status === 'PENDING' || ch.status === 'OVERDUE')
   const missing = openLines.filter((x) => !activeOf(x.invoiceId!).some((ch) => ch.method === bulkMethod)).length
-  const t = l.totals
-  const emitted = t.pending.cents + t.overdue.cents + t.received.cents
+  const tt = l.totals
+  const emitted = tt.pending.cents + tt.overdue.cents + tt.received.cents
 
   const issueAll = () =>
     act.run(async () => {
@@ -79,13 +80,15 @@ export default function Cobrancas({ period, canWrite, goRateio }: { period: stri
   if (!c.closed) {
     return (
       <div className="c">
-        <div className="c-label">Cobranças de {monthName(period)}</div>
+        <div className="c-label">{t('Cobranças de', 'Charges for')} {monthName(period)}</div>
         <Empty>
-          As cobranças saem das faturas emitidas. Feche o ciclo de {monthName(period)} em Custos &amp; rateio para emitir
-          as faturas e depois gere o Pix ou o boleto de cada morador aqui.
+          {t(
+            `As cobranças saem das faturas emitidas. Feche o ciclo de ${monthName(period)} em Custos & rateio para emitir as faturas e depois gere o Pix ou o boleto de cada morador aqui.`,
+            `Charges come from issued bills. Close the ${monthName(period)} cycle in Costs & split to issue the bills, then generate each resident's Pix or boleto here.`,
+          )}
         </Empty>
         <button className="btn btn-ghost btn-sm" onClick={goRateio} style={{ marginTop: 12 }}>
-          Ir para Custos &amp; rateio
+          {t('Ir para Custos & rateio', 'Go to Costs & split')}
         </button>
       </div>
     )
@@ -95,36 +98,36 @@ export default function Cobrancas({ period, canWrite, goRateio }: { period: stri
     <>
       <div className="kpi2">
         <div className="kpi">
-          <div className="k">Recebido</div>
-          <div className="v">{fmtBRL(t.received.cents)}</div>
+          <div className="k">{t('Recebido', 'Received')}</div>
+          <div className="v">{fmtBRL(tt.received.cents)}</div>
           <div className="d">
-            Pix {t.receivedPix.count} · boleto {t.receivedBoleto.count}
+            Pix {tt.receivedPix.count} · {t('boleto', 'boleto')} {tt.receivedBoleto.count}
           </div>
         </div>
         <div className="kpi">
-          <div className="k">Em aberto</div>
-          <div className="v">{fmtBRL(t.pending.cents)}</div>
+          <div className="k">{t('Em aberto', 'Open')}</div>
+          <div className="v">{fmtBRL(tt.pending.cents)}</div>
           <div className="d">
-            {t.pending.count} {t.pending.count === 1 ? 'cobrança' : 'cobranças'}
+            {tt.pending.count} {tt.pending.count === 1 ? t('cobrança', 'charge') : t('cobranças', 'charges')}
           </div>
         </div>
         <div className="kpi">
-          <div className="k">Vencido</div>
-          <div className="v">{fmtBRL(t.overdue.cents)}</div>
-          <div className={t.overdue.count ? 'd warn' : 'd'}>
-            {t.overdue.count} {t.overdue.count === 1 ? 'cobrança' : 'cobranças'}
+          <div className="k">{t('Vencido', 'Overdue')}</div>
+          <div className="v">{fmtBRL(tt.overdue.cents)}</div>
+          <div className={tt.overdue.count ? 'd warn' : 'd'}>
+            {tt.overdue.count} {tt.overdue.count === 1 ? t('cobrança', 'charge') : t('cobranças', 'charges')}
           </div>
         </div>
         <div className="kpi">
-          <div className="k">Recebimento</div>
-          <div className="v">{emitted ? `${Math.round((t.received.cents / emitted) * 100)}%` : '—'}</div>
-          <div className="d">do valor cobrado</div>
+          <div className="k">{t('Recebimento', 'Collected')}</div>
+          <div className="v">{emitted ? `${Math.round((tt.received.cents / emitted) * 100)}%` : '—'}</div>
+          <div className="d">{t('do valor cobrado', 'of the amount charged')}</div>
         </div>
       </div>
 
       <div className="c">
         <div className="c-label row-between">
-          Faturas de {monthName(period)}
+          {t('Faturas de', 'Bills for')} {monthName(period)}
           {canWrite && openLines.length > 0 && (
             <span className="bulk-issue">
               <span className="seg">
@@ -135,7 +138,7 @@ export default function Cobrancas({ period, canWrite, goRateio }: { period: stri
                 ))}
               </span>
               <button className="btn btn-primary btn-sm" onClick={issueAll} disabled={act.busy || missing === 0}>
-                {missing ? `Emitir ${missing}` : 'Todas emitidas'}
+                {missing ? `${t('Emitir', 'Issue')} ${missing}` : t('Todas emitidas', 'All issued')}
               </button>
             </span>
           )}
@@ -143,10 +146,10 @@ export default function Cobrancas({ period, canWrite, goRateio }: { period: stri
         {act.error && <div className="login-error">{act.error}</div>}
         {skipped.length > 0 && (
           <div className="login-error">
-            Sem cobrança por falta de CPF/CNPJ: {skipped.join(', ')}. Cada morador informa o dele em Perfil → Dados de cobrança.
+            {t('Sem cobrança por falta de CPF/CNPJ', 'No charge because of a missing Tax ID')}: {skipped.join(', ')}. {t('Cada morador informa o dele em Perfil → Dados de cobrança.', 'Each resident enters theirs under Profile → Billing details.')}
           </div>
         )}
-        {lines.length === 0 && <Empty>Nenhuma fatura emitida neste ciclo.</Empty>}
+        {lines.length === 0 && <Empty>{t('Nenhuma fatura emitida neste ciclo.', 'No bills issued this cycle.')}</Empty>}
         {lines.map((line) => {
           const charges = byInvoice.get(line.invoiceId!) ?? []
           const open = line.status === 'PENDING' || line.status === 'OVERDUE'
@@ -159,7 +162,7 @@ export default function Cobrancas({ period, canWrite, goRateio }: { period: stri
                   {line.unitLabel ? `${line.unitLabel} · ${line.name}` : line.name}
                 </button>
                 <div className="charge-chips">
-                  {shown.length === 0 && <span className="s">sem cobrança emitida</span>}
+                  {shown.length === 0 && <span className="s">{t('sem cobrança emitida', 'no charge issued')}</span>}
                   {shown.map((ch) => (
                     <button key={ch.id} className={`ptag ${CHARGE_TAG[ch.status]}`} onClick={() => view(ch, line)}>
                       {METHOD_LABEL[ch.method]} · {CHARGE_LABEL[ch.status]}
@@ -180,7 +183,7 @@ export default function Cobrancas({ period, canWrite, goRateio }: { period: stri
                     ))}
                   {active.map((ch) => (
                     <button key={ch.id} className="btn btn-ghost btn-sm" disabled={act.busy} onClick={() => cancel(ch.id)}>
-                      Cancelar {METHOD_LABEL[ch.method]}
+                      {t('Cancelar', 'Cancel')} {METHOD_LABEL[ch.method]}
                     </button>
                   ))}
                 </span>
@@ -191,8 +194,8 @@ export default function Cobrancas({ period, canWrite, goRateio }: { period: stri
       </div>
 
       <div className="c">
-        <div className="c-label">Eventos do gateway</div>
-        {l.charges.length === 0 && <Empty>Nenhuma cobrança emitida ainda.</Empty>}
+        <div className="c-label">{t('Eventos do gateway', 'Gateway events')}</div>
+        {l.charges.length === 0 && <Empty>{t('Nenhuma cobrança emitida ainda.', 'No charges issued yet.')}</Empty>}
         {l.events.map((e) => ({ ...e, c: l.charges.find((c) => c.id === e.chargeId)! })).map((e) => (
           <div className="gw-event" key={`${e.chargeId}-${e.kind}-${e.at}`}>
             <span className={`gw-kind ${e.kind === 'PAYMENT_RECEIVED' ? 'ok' : e.kind === 'PAYMENT_DELETED' ? 'off' : ''}`}>
@@ -208,7 +211,7 @@ export default function Cobrancas({ period, canWrite, goRateio }: { period: stri
 
       {detail && <FaturaDetalhe line={detail} period={period} onClose={() => setDetail(null)} />}
       {viewing && (
-        <Modal title={`Cobrança · ${viewing.line.unitLabel ?? viewing.line.name}`} onClose={() => setViewing(null)}>
+        <Modal title={`${t('Cobrança', 'Charge')} · ${viewing.line.unitLabel ?? viewing.line.name}`} onClose={() => setViewing(null)}>
           <ChargeView
             charge={viewing.charge}
             confirmPath={`/api/admin/charges/${viewing.charge.id}/simulate-payment`}
@@ -218,9 +221,9 @@ export default function Cobrancas({ period, canWrite, goRateio }: { period: stri
             }}
           />
           <div className="gw-meta">
-            <span>id no gateway</span>
+            <span>{t('id no gateway', 'gateway id')}</span>
             <code>{viewing.charge.externalId}</code>
-            <span>emitida em</span>
+            <span>{t('emitida em', 'issued on')}</span>
             <code>{fmtDateTime(viewing.charge.createdAt)}</code>
           </div>
         </Modal>

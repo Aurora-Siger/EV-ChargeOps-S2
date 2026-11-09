@@ -4,6 +4,7 @@ import { api, ApiError } from '../../lib/http'
 import type { Charge, ChargeMethod, CycleLine } from '../../lib/types'
 import { useAction } from '../../lib/useAction'
 import { I } from './icons'
+import { t } from '../../lib/i18n'
 
 /* ── copiar ── */
 
@@ -27,8 +28,8 @@ function CopyField({ value, label }: { value: string; label: string }) {
   return (
     <div className="copy-field">
       <code>{value}</code>
-      <button className={`btn btn-sm ${copied ? 'btn-ghost' : 'btn-primary'}`} onClick={copy} aria-label={`Copiar ${label}`}>
-        {copied ? <>{I.check} Copiado</> : `Copiar ${label}`}
+      <button className={`btn btn-sm ${copied ? 'btn-ghost' : 'btn-primary'}`} onClick={copy} aria-label={`${t('Copiar', 'Copy')} ${label}`}>
+        {copied ? <>{I.check} {t('Copiado', 'Copied')}</> : `${t('Copiar', 'Copy')} ${label}`}
       </button>
     </div>
   )
@@ -59,7 +60,7 @@ export function ChargeView({
     <div className="charge-view">
       <div className="charge-head">
         <span>
-          {METHOD_LABEL[charge.method]} · vence {fmtDueDate(charge.dueDate)}
+          {METHOD_LABEL[charge.method]} · {t('vence', 'due')} {fmtDueDate(charge.dueDate)}
         </span>
         <span className={`ptag ${CHARGE_TAG[charge.status]}`}>{CHARGE_LABEL[charge.status]}</span>
       </div>
@@ -68,14 +69,14 @@ export function ChargeView({
         <>
           {charge.pix.qrCodeImage && (
             <div className="pix-qr">
-              <img src={charge.pix.qrCodeImage} alt="QR code do Pix" width={200} height={200} />
+              <img src={charge.pix.qrCodeImage} alt={t('QR code do Pix', 'Pix QR code')} width={200} height={200} />
             </div>
           )}
           {open && (
             <>
-              <div className="pay-hint">Abra o app do banco, escolha Pix e aponte a câmera, ou use o copia e cola:</div>
-              <CopyField value={charge.pix.payload} label="código" />
-              <div className="pay-hint">Compensa na hora · válido até {fmtDateTime(charge.pix.expiresAt)}</div>
+              <div className="pay-hint">{t('Abra o app do banco, escolha Pix e aponte a câmera, ou use o copia e cola:', 'Open your banking app, choose Pix and point the camera, or use copy and paste:')}</div>
+              <CopyField value={charge.pix.payload} label={t('código', 'code')} />
+              <div className="pay-hint">{t('Compensa na hora · válido até', 'Clears instantly · valid until')} {fmtDateTime(charge.pix.expiresAt)}</div>
             </>
           )}
         </>
@@ -84,18 +85,18 @@ export function ChargeView({
       {charge.boleto && (
         open && (
           <>
-            <div className="pay-hint">Pague no app do banco ou no internet banking com a linha digitável:</div>
-            <CopyField value={charge.boleto.digitableLine} label="linha" />
-            <div className="pay-hint">Compensa em até 2 dias úteis</div>
+            <div className="pay-hint">{t('Pague no app do banco ou no internet banking com a linha digitável:', 'Pay in your banking app or internet banking with the typeable line:')}</div>
+            <CopyField value={charge.boleto.digitableLine} label={t('linha', 'line')} />
+            <div className="pay-hint">{t('Compensa em até 2 dias úteis', 'Clears within 2 business days')}</div>
           </>
         )
       )}
 
-      {charge.status === 'RECEIVED' && charge.paidAt && <div className="pay-hint">Pago em {fmtDateTime(charge.paidAt)}</div>}
+      {charge.status === 'RECEIVED' && charge.paidAt && <div className="pay-hint">{t('Pago em', 'Paid on')} {fmtDateTime(charge.paidAt)}</div>}
 
       {open && charge.canSimulatePayment && (
         <button className="btn btn-ghost btn-sm pay-confirm" onClick={pay} disabled={act.busy}>
-          {act.busy ? 'Confirmando…' : 'Confirmar pagamento'}
+          {act.busy ? t('Confirmando…', 'Confirming…') : t('Confirmar pagamento', 'Confirm payment')}
         </button>
       )}
       {act.error && <div className="login-error">{act.error}</div>}
@@ -126,11 +127,11 @@ export function PaymentCard({
   if (line.status === 'OPEN') {
     return (
       <div className="c">
-        <div className="c-label">Pagamento</div>
+        <div className="c-label">{t('Pagamento', 'Payment')}</div>
         <div className="pay-wait">
           {I.wallet}
           <span>
-            O Pix e o boleto saem quando o condomínio fechar o ciclo. O vencimento é {fmtDueDate(line.dueDate)}.
+            {t('O Pix e o boleto saem quando o condomínio fechar o ciclo. O vencimento é', 'Pix and boleto are issued when the building closes the cycle. Due date:')} {fmtDueDate(line.dueDate)}.
           </span>
         </div>
       </div>
@@ -143,11 +144,11 @@ export function PaymentCard({
       <div className="c pay-done">
         <div className="pay-ok">{I.check}</div>
         <div>
-          <b>Fatura paga</b>
+          <b>{t('Fatura paga', 'Bill paid')}</b>
           <span>
             {paid
-              ? `${METHOD_LABEL[paid.method]} de ${fmtBRL(paid.amountCents)} confirmado em ${fmtDateTime(paid.paidAt!)}`
-              : 'Baixa registrada pelo gestor do condomínio'}
+              ? t(`${METHOD_LABEL[paid.method]} de ${fmtBRL(paid.amountCents)} confirmado em ${fmtDateTime(paid.paidAt!)}`, `${METHOD_LABEL[paid.method]} of ${fmtBRL(paid.amountCents)} confirmed on ${fmtDateTime(paid.paidAt!)}`)
+              : t('Baixa registrada pelo gestor do condomínio', 'Payment recorded by the building manager')}
           </span>
         </div>
       </div>
@@ -172,7 +173,7 @@ export function PaymentCard({
   return (
     <div className="c">
       <div className="c-label row-between">
-        Pagar {fmtBRL(line.totalCents)}
+        {t('Pagar', 'Pay')} {fmtBRL(line.totalCents)}
         <span className="seg">
           {(['PIX', 'BOLETO'] as const).map((m) => (
             <button key={m} className={method === m ? 'on' : ''} onClick={() => setMethod(m)}>
@@ -193,22 +194,22 @@ export function PaymentCard({
         <div className="pay-issue">
           <span>
             {current
-              ? 'Essa cobrança venceu. Gere uma nova, com vencimento hoje.'
+              ? t('Essa cobrança venceu. Gere uma nova, com vencimento hoje.', 'This charge expired. Generate a new one, due today.')
               : method === 'PIX'
-                ? 'Gere um QR code Pix. O pagamento compensa na hora.'
-                : 'Gere um boleto. Ele compensa em até 2 dias úteis.'}
+                ? t('Gere um QR code Pix. O pagamento compensa na hora.', 'Generate a Pix QR code. Payment clears instantly.')
+                : t('Gere um boleto. Ele compensa em até 2 dias úteis.', 'Generate a boleto. It clears within 2 business days.')}
           </span>
           {needDoc && (
             <input
               className="input"
               inputMode="numeric"
-              placeholder="CPF ou CNPJ"
+              placeholder={t('CPF ou CNPJ', 'Tax ID (CPF or CNPJ)')}
               value={doc}
               onChange={(e) => setDoc(e.target.value)}
             />
           )}
           <button className="btn btn-primary btn-sm" onClick={issue} disabled={act.busy}>
-            {act.busy ? 'Gerando…' : method === 'PIX' ? 'Gerar Pix' : 'Gerar boleto'}
+            {act.busy ? t('Gerando…', 'Generating…') : method === 'PIX' ? t('Gerar Pix', 'Generate Pix') : t('Gerar boleto', 'Generate boleto')}
           </button>
         </div>
       )}

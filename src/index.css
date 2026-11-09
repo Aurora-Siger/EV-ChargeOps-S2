@@ -7599,6 +7599,40 @@ img {
   gap: 3px;
 }
 
+.lang-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 30px;
+  min-width: 30px;
+  padding: 0 8px;
+  border-radius: 999px;
+  border: 0;
+  background: transparent;
+  color: var(--text3);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  transition: color 0.2s, background 0.2s;
+}
+
+.lang-toggle:hover {
+  color: var(--text);
+  background: rgb(var(--ink) / 0.06);
+}
+
+/* canto superior direito do app, fora do fluxo da tela */
+.theme-corner {
+  position: fixed;
+  top: 10px;
+  right: 14px;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
 .rcpt-facts div + div {
   padding-left: 12px;
   border-left: 1px solid var(--bd);

@@ -6,16 +6,21 @@ import { Empty, ErrorBox, Field, Loading, Modal } from '../ui'
 import { isSuperAdmin, memberLabel, TITLE_LABEL, useMe } from '../me'
 import { useAction } from '../../../lib/useAction'
 import { MapPicker } from './MapPicker'
+import { labels, t } from '../../../lib/i18n'
 
 type Sub = 'moradores' | 'unidades' | 'cartoes' | 'estacoes'
-const SUBS: { id: Sub; label: string }[] = [
-  { id: 'moradores', label: 'Moradores' },
-  { id: 'unidades', label: 'Unidades' },
-  { id: 'cartoes', label: 'Cartões RFID' },
-  { id: 'estacoes', label: 'Pontos de recarga' },
+const subOptions = (): { id: Sub; label: string }[] => [
+  { id: 'moradores', label: t('Moradores', 'Residents') },
+  { id: 'unidades', label: t('Unidades', 'Units') },
+  { id: 'cartoes', label: t('Cartões RFID', 'RFID cards') },
+  { id: 'estacoes', label: t('Pontos de recarga', 'Charging points') },
 ]
 
-const KIND_LABEL: Record<StationKind, string> = { CONDOMINIO: 'Condomínio', PARCEIRO: 'Parceiro', PUBLICO: 'Público' }
+const KIND_LABEL: Record<StationKind, string> = labels({
+  CONDOMINIO: ['Condomínio', 'Building'],
+  PARCEIRO: ['Parceiro', 'Partner'],
+  PUBLICO: ['Público', 'Public'],
+})
 
 const toCents = (v: string) => (v.trim() === '' ? null : Math.round(Number(v.replace(',', '.')) * 100))
 const fromCents = (v: number | null) => (v === null ? '' : (v / 100).toFixed(2).replace('.', ','))
@@ -26,7 +31,7 @@ const toNum = (v: string) => (v.trim() === '' ? null : Number(v.replace(',', '.'
 /** Papel no formulário: morador comum ou um dos cargos de admin (síndico/subsíndico). */
 type Papel = 'USER' | AdminTitle
 const PAPEIS: Papel[] = ['USER', 'SINDICO', 'SUBSINDICO']
-const papelLabel = (p: Papel) => (p === 'USER' ? 'Morador' : TITLE_LABEL[p])
+const papelLabel = (p: Papel) => (p === 'USER' ? t('Morador', 'Resident') : TITLE_LABEL[p])
 const papelOf = (u: { role: MemberRole; adminTitle: AdminTitle | null }): Papel =>
   u.role === 'ADMIN' && u.adminTitle ? u.adminTitle : 'USER'
 const toRole = (p: Papel) => (p === 'USER' ? { role: 'USER' as const, adminTitle: null } : { role: 'ADMIN' as const, adminTitle: p })
@@ -85,21 +90,21 @@ function UserModal({ user, units, onClose, onSaved }: { user: AdminUser | null; 
   }
 
   return (
-    <Modal title={user ? 'Editar pessoa' : 'Cadastrar pessoa'} onClose={onClose}>
+    <Modal title={user ? t('Editar pessoa', 'Edit person') : t('Cadastrar pessoa', 'Add person')} onClose={onClose}>
       <form onSubmit={save}>
-        <Field label="Nome" hint={accountLocked ? 'a conta é de outro condomínio: só a própria pessoa muda' : undefined}>
+        <Field label={t('Nome', 'Name')} hint={accountLocked ? t('a conta é de outro condomínio: só a própria pessoa muda', 'the account belongs to another building: only the person can change it') : undefined}>
           <input value={f.name} onChange={set('name')} required disabled={accountLocked} />
         </Field>
-        <Field label="E-mail">
+        <Field label={t('E-mail', 'Email')}>
           <input type="email" value={f.email} onChange={set('email')} required disabled={!!user} />
         </Field>
         {!accountLocked && (
-          <Field label={user ? 'Nova senha' : 'Senha inicial'} hint={user ? 'deixe em branco para manter' : 'mínimo 8 caracteres; a pessoa usa para entrar'}>
+          <Field label={user ? t('Nova senha', 'New password') : t('Senha inicial', 'Initial password')} hint={user ? t('deixe em branco para manter', 'leave blank to keep') : t('mínimo 8 caracteres; a pessoa usa para entrar', 'at least 8 characters; the person uses it to sign in')}>
             <input value={f.password} onChange={set('password')} minLength={8} required={!user} autoComplete="new-password" />
           </Field>
         )}
         {superAdmin && !self && (
-          <Field label="Papel" hint="síndico e subsíndico administram o condomínio; um de cada">
+          <Field label={t('Papel', 'Role')} hint={t('síndico e subsíndico administram o condomínio; um de cada', 'the building manager and deputy manager run the building; one of each')}>
             <select value={f.papel} onChange={set('papel')}>
               {PAPEIS.map((p) => (
                 <option key={p} value={p}>
@@ -111,24 +116,24 @@ function UserModal({ user, units, onClose, onSaved }: { user: AdminUser | null; 
         )}
         {user && (
           <Field
-            label="CPF ou CNPJ"
-            hint={user.hasDocument ? 'já informado; preencha só para trocar' : 'necessário para gerar o Pix e o boleto desta pessoa'}
+            label={t('CPF ou CNPJ', 'Tax ID (CPF or CNPJ)')}
+            hint={user.hasDocument ? t('já informado; preencha só para trocar', 'already on file; fill in only to replace') : t('necessário para gerar o Pix e o boleto desta pessoa', 'needed to generate this person’s Pix and boleto')}
           >
             <input value={f.cpfCnpj} onChange={set('cpfCnpj')} inputMode="numeric" placeholder={user.hasDocument ? '••••••••••• (informado)' : '000.000.000-00'} />
           </Field>
         )}
         <div className="form-2">
           {user && (
-            <Field label="Tipo">
+            <Field label={t('Tipo', 'Type')}>
               <select value={f.kind} onChange={set('kind')}>
-                <option value="MORADOR">Morador (tem unidade)</option>
-                <option value="CONVIDADO">Convidado (mora em outro)</option>
+                <option value="MORADOR">{t('Morador (tem unidade)', 'Resident (has a unit)')}</option>
+                <option value="CONVIDADO">{t('Convidado (mora em outro)', 'Guest (lives elsewhere)')}</option>
               </select>
             </Field>
           )}
-          <Field label="Unidade">
+          <Field label={t('Unidade', 'Unit')}>
             <select value={guest ? '' : f.unitId} onChange={set('unitId')} disabled={guest}>
-              <option value="">— nenhuma —</option>
+              <option value="">{t('— nenhuma —', '— none —')}</option>
               {units.map((u) => (
                 <option key={u.id} value={u.id}>
                   {u.label}
@@ -139,7 +144,7 @@ function UserModal({ user, units, onClose, onSaved }: { user: AdminUser | null; 
         </div>
         {error && <div className="login-error">{error}</div>}
         <button className="btn btn-primary" disabled={busy}>
-          {busy ? 'Salvando…' : 'Salvar'}
+          {busy ? t('Salvando…', 'Saving…') : t('Salvar', 'Save')}
         </button>
       </form>
     </Modal>
@@ -160,8 +165,8 @@ function Moradores() {
   const remove = (u: AdminUser) => {
     const msg =
       u.kind === 'CONVIDADO'
-        ? `Tirar ${u.name} deste condomínio? A pessoa continua com a conta no condomínio dela.`
-        : `Remover ${u.name} deste condomínio? Se a pessoa não participar de outro, a conta e as faturas dela são apagadas.`
+        ? t(`Tirar ${u.name} deste condomínio? A pessoa continua com a conta no condomínio dela.`, `Remove ${u.name} from this building? The person keeps their account in their own building.`)
+        : t(`Remover ${u.name} deste condomínio? Se a pessoa não participar de outro, a conta e as faturas dela são apagadas.`, `Remove ${u.name} from this building? If the person doesn't belong to another one, their account and bills are deleted.`)
     if (!confirm(msg)) return
     void act.run(async () => {
       await api(`/api/admin/users/${u.id}`, { method: 'DELETE' })
@@ -175,9 +180,9 @@ function Moradores() {
   return (
     <div className="c">
       <div className="c-label row-between">
-        {users.data?.length ?? 0} pessoas com acesso
+        {users.data?.length ?? 0} {t('pessoas com acesso', 'people with access')}
         <button className="btn btn-primary btn-sm" onClick={() => setEditing('new')}>
-          + Cadastrar
+          + {t('Cadastrar', 'Add')}
         </button>
       </div>
       {act.error && <div className="login-error">{act.error}</div>}
@@ -185,22 +190,22 @@ function Moradores() {
         <div className="act wrap" key={u.id}>
           <div className="info">
             <div className="t">
-              {u.name} {u.id === me.user.id && <small>(você)</small>}
+              {u.name} {u.id === me.user.id && <small>({t('você', 'you')})</small>}
             </div>
             <div className="s">
-              {u.email} · {u.kind === 'CONVIDADO' ? 'mora em outro condomínio' : (u.unitLabel ?? 'sem unidade')} ·{' '}
-              {u.cards.length} {u.cards.length === 1 ? 'cartão' : 'cartões'}{!u.hasDocument && ' · sem CPF/CNPJ'}
+              {u.email} · {u.kind === 'CONVIDADO' ? t('mora em outro condomínio', 'lives in another building') : (u.unitLabel ?? t('sem unidade', 'no unit'))} ·{' '}
+              {u.cards.length} {u.cards.length === 1 ? t('cartão', 'card') : t('cartões', 'cards')}{!u.hasDocument && ` · ${t('sem CPF/CNPJ', 'no Tax ID')}`}
             </div>
           </div>
           <span className={`ptag ${u.role === 'USER' ? 'dim' : 'mid'}`}>{memberLabel(u)}</span>
           {canEdit(u) && (
             <button className="link-btn" onClick={() => setEditing(u)}>
-              editar
+              {t('editar', 'edit')}
             </button>
           )}
           {canRemove(u) && (
             <button className="link-btn danger" onClick={() => remove(u)} disabled={act.busy}>
-              remover
+              {t('remover', 'remove')}
             </button>
           )}
         </div>
@@ -247,7 +252,7 @@ function Unidades() {
       units.reload()
     })
   const remove = (u: Unit) => {
-    if (!confirm(`Apagar ${u.label}? Os moradores dela ficam sem unidade.`)) return
+    if (!confirm(`${t('Apagar', 'Delete')} ${u.label}? ${t('Os moradores dela ficam sem unidade.', 'Its residents will have no unit.')}`)) return
     void act.run(async () => {
       await api(`/api/admin/units/${u.id}`, { method: 'DELETE' })
       units.reload()
@@ -258,8 +263,8 @@ function Unidades() {
     <div className="c">
       <form className="inline-form" onSubmit={add}>
         <input value={label} onChange={(e) => setLabel(e.target.value)} placeholder="Apto 1204" required />
-        <select value={stationId} onChange={(e) => setStationId(e.target.value)} aria-label="Carregador da unidade">
-          {condos.length === 0 && <option value="">sem carregador</option>}
+        <select value={stationId} onChange={(e) => setStationId(e.target.value)} aria-label={t('Carregador da unidade', 'Unit charger')}>
+          {condos.length === 0 && <option value="">{t('sem carregador', 'no charger')}</option>}
           {condos.map((s) => (
             <option key={s.id} value={s.id}>
               {s.name}
@@ -267,27 +272,27 @@ function Unidades() {
           ))}
         </select>
         <button className="btn btn-primary btn-sm" disabled={act.busy}>
-          Adicionar
+          {t('Adicionar', 'Add')}
         </button>
       </form>
       {act.error && <div className="login-error">{act.error}</div>}
       {units.loading && !units.data && <Loading />}
-      {units.data?.length === 0 && <Empty>Nenhuma unidade cadastrada.</Empty>}
+      {units.data?.length === 0 && <Empty>{t('Nenhuma unidade cadastrada.', 'No units registered.')}</Empty>}
       {units.data?.map((u) => (
         <div className="act wrap" key={u.id}>
           <div className="info">
             <div className="t">{u.label}</div>
             <div className="s">
-              {u.residents} {u.residents === 1 ? 'morador' : 'moradores'}
+              {u.residents} {u.residents === 1 ? t('morador', 'resident') : t('moradores', 'residents')}
             </div>
           </div>
           <select
             className="inline-select"
             value={u.stationId ?? ''}
             onChange={(e) => update(u.id, { stationId: e.target.value || null })}
-            aria-label={`Carregador de ${u.label}`}
+            aria-label={`${t('Carregador de', 'Charger for')} ${u.label}`}
           >
-            <option value="">— sem carregador —</option>
+            <option value="">{t('— sem carregador —', '— no charger —')}</option>
             {condos.map((s) => (
               <option key={s.id} value={s.id}>
                 {s.name}
@@ -295,7 +300,7 @@ function Unidades() {
             ))}
           </select>
           <button className="link-btn danger" onClick={() => remove(u)} disabled={act.busy}>
-            apagar
+            {t('apagar', 'delete')}
           </button>
         </div>
       ))}
@@ -325,7 +330,7 @@ function Cartoes() {
       cards.reload()
     })
   const remove = (c: Card) => {
-    if (!confirm(`Remover o cartão ${c.cardNumber}? As sessões já atribuídas continuam com o morador.`)) return
+    if (!confirm(t(`Remover o cartão ${c.cardNumber}? As sessões já atribuídas continuam com o morador.`, `Remove card ${c.cardNumber}? Sessions already assigned stay with the resident.`))) return
     void act.run(async () => {
       await api(`/api/admin/cards/${c.id}`, { method: 'DELETE' })
       cards.reload()
@@ -335,18 +340,17 @@ function Cartoes() {
   return (
     <div className="c">
       <div className="hint-line" style={{ marginTop: 0 }}>
-        A SEMS informa o número do cartão de cada recarga; com o cartão cadastrado aqui, a sessão cai sozinha na fatura do
-        morador (inclusive as antigas). Com plug and charge, o número é o SN do carregador.
+        {t('A SEMS informa o número do cartão de cada recarga; com o cartão cadastrado aqui, a sessão cai sozinha na fatura do morador (inclusive as antigas). Com plug and charge, o número é o SN do carregador.', 'SEMS reports the card number of each charge; with the card registered here, the session goes to the resident’s bill automatically (including past ones). With plug and charge, the number is the charger’s serial number.')}
       </div>
       <form className="inline-form" onSubmit={add}>
         <input
           value={f.cardNumber}
           onChange={(e) => setF({ ...f, cardNumber: e.target.value })}
-          placeholder="Número do cartão"
+          placeholder={t('Número do cartão', 'Card number')}
           required
         />
         <select value={f.userId} onChange={(e) => setF({ ...f, userId: e.target.value })} required aria-label="Morador">
-          <option value="">Morador…</option>
+          <option value="">{t('Morador…', 'Resident…')}</option>
           {/* convidado tem o cartão cadastrado no condomínio dele */}
           {users.data?.filter((u) => u.kind === 'MORADOR').map((u) => (
             <option key={u.id} value={u.id}>
@@ -355,14 +359,14 @@ function Cartoes() {
             </option>
           ))}
         </select>
-        <input value={f.label} onChange={(e) => setF({ ...f, label: e.target.value })} placeholder="Apelido (opcional)" />
+        <input value={f.label} onChange={(e) => setF({ ...f, label: e.target.value })} placeholder={t('Apelido (opcional)', 'Nickname (optional)')} />
         <button className="btn btn-primary btn-sm" disabled={act.busy}>
-          Adicionar
+          {t('Adicionar', 'Add')}
         </button>
       </form>
       {act.error && <div className="login-error">{act.error}</div>}
       {cards.loading && !cards.data && <Loading />}
-      {cards.data?.length === 0 && <Empty>Nenhum cartão cadastrado.</Empty>}
+      {cards.data?.length === 0 && <Empty>{t('Nenhum cartão cadastrado.', 'No cards registered.')}</Empty>}
       {cards.data?.map((c) => (
         <div className="act wrap" key={c.id}>
           <div className="info">
@@ -372,12 +376,12 @@ function Cartoes() {
               {c.label && ` · ${c.label}`}
             </div>
           </div>
-          <span className={`ptag ${c.active ? 'cheap' : 'dim'}`}>{c.active ? 'Ativo' : 'Bloqueado'}</span>
+          <span className={`ptag ${c.active ? 'cheap' : 'dim'}`}>{c.active ? t('Ativo', 'Active') : t('Bloqueado', 'Blocked')}</span>
           <button className="link-btn" onClick={() => toggle(c)} disabled={act.busy}>
-            {c.active ? 'bloquear' : 'ativar'}
+            {c.active ? t('bloquear', 'block') : t('ativar', 'activate')}
           </button>
           <button className="link-btn danger" onClick={() => remove(c)} disabled={act.busy}>
-            remover
+            {t('remover', 'remove')}
           </button>
         </div>
       ))}
@@ -447,12 +451,12 @@ function StationModal({ station, onClose, onSaved }: { station: Station | null; 
   }
 
   return (
-    <Modal title={station ? 'Editar ponto de recarga' : 'Novo ponto de recarga'} onClose={onClose}>
+    <Modal title={station ? t('Editar ponto de recarga', 'Edit charging point') : t('Novo ponto de recarga', 'New charging point')} onClose={onClose}>
       <form onSubmit={save}>
-        <Field label="Nome">
+        <Field label={t('Nome', 'Name')}>
           <input value={f.name} onChange={set('name')} required />
         </Field>
-        <Field label="Endereço">
+        <Field label={t('Endereço', 'Address')}>
           <input value={f.address} onChange={set('address')} />
         </Field>
         <div className="form-2">
@@ -480,12 +484,12 @@ function StationModal({ station, onClose, onSaved }: { station: Station | null; 
               ))}
             </select>
           </Field>
-          <Field label="Potência (kW)">
+          <Field label={t('Potência (kW)', 'Power (kW)')}>
             <input value={f.maxPowerKw} onChange={set('maxPowerKw')} inputMode="decimal" required />
           </Field>
         </div>
         {superAdmin && f.kind === 'CONDOMINIO' && (
-          <Field label="Condomínio">
+          <Field label={t('Condomínio', 'Building')}>
             <select value={f.workspaceId} onChange={set('workspaceId')}>
               {condos.data
                 ?.filter((w) => !w.archivedAt)
@@ -498,21 +502,21 @@ function StationModal({ station, onClose, onSaved }: { station: Station | null; 
           </Field>
         )}
         <div className="form-2">
-          <Field label="Horário">
-            <input value={f.openingHours} onChange={set('openingHours')} placeholder="todos os dias, 7h–22h" />
+          <Field label={t('Horário', 'Hours')}>
+            <input value={f.openingHours} onChange={set('openingHours')} placeholder={t('todos os dias, 7h–22h', 'every day, 7am–10pm')} />
           </Field>
           {f.kind !== 'CONDOMINIO' && (
-            <Field label="Preço (R$/kWh)" hint="informado pelo local">
+            <Field label={t('Preço (R$/kWh)', 'Price (R$/kWh)')} hint={t('informado pelo local', 'set by the location')}>
               <input value={f.price} onChange={set('price')} inputMode="decimal" placeholder="0,89" />
             </Field>
           )}
         </div>
-        <Field label="URL da foto" hint="opcional — URL (https://…) ou arquivo do app (/stations/…); sem uma, o app mostra um preview gerado">
+        <Field label={t('URL da foto', 'Photo URL')} hint={t('opcional — URL (https://…) ou arquivo do app (/stations/…); sem uma, o app mostra um preview gerado', 'optional — URL (https://…) or app file (/stations/…); without one, the app shows a generated preview')}>
           <input value={f.imageUrl} onChange={set('imageUrl')} placeholder="https://… ou /stations/…" />
         </Field>
         {error && <div className="login-error">{error}</div>}
         <button className="btn btn-primary" disabled={busy}>
-          {busy ? 'Salvando…' : 'Salvar'}
+          {busy ? t('Salvando…', 'Saving…') : t('Salvar', 'Save')}
         </button>
       </form>
     </Modal>
@@ -531,7 +535,7 @@ function Estacoes() {
   const canEdit = (s: Station) => superAdmin || s.workspace?.id === me.workspace?.id
 
   const remove = (s: Station) => {
-    if (!confirm(`Apagar ${s.name} do mapa?`)) return
+    if (!confirm(t(`Apagar ${s.name} do mapa?`, `Delete ${s.name} from the map?`))) return
     void act.run(async () => {
       await api(`/api/admin/stations/${s.id}`, { method: 'DELETE' })
       stations.reload()
@@ -541,9 +545,9 @@ function Estacoes() {
   return (
     <div className="c">
       <div className="c-label row-between">
-        Pontos no mapa
+        {t('Pontos no mapa', 'Points on the map')}
         <button className="btn btn-primary btn-sm" onClick={() => setEditing('new')}>
-          + Novo ponto
+          + {t('Novo ponto', 'New point')}
         </button>
       </div>
       {act.error && <div className="login-error">{act.error}</div>}
@@ -553,20 +557,20 @@ function Estacoes() {
           <div className="info">
             <div className="t">{s.name}</div>
             <div className="s">
-              {s.address ?? 'sem endereço'}
+              {s.address ?? t('sem endereço', 'no address')}
               {superAdmin && s.workspace && s.workspace.id !== me.workspace?.id && ` · ${s.workspace.name}`}
-              {s.chargers.some((c) => c.externalId) && ' · recebe as sessões da SEMS'}
+              {s.chargers.some((c) => c.externalId) && ` · ${t('recebe as sessões da SEMS', 'receives SEMS sessions')}`}
             </div>
           </div>
           <span className={`ptag ${s.kind === 'CONDOMINIO' ? 'mid' : 'dim'}`}>{KIND_LABEL[s.kind]}</span>
           {canEdit(s) && (
             <button className="link-btn" onClick={() => setEditing(s)}>
-              editar
+              {t('editar', 'edit')}
             </button>
           )}
           {canEdit(s) && !s.chargers.some((c) => c.externalId) && (
             <button className="link-btn danger" onClick={() => remove(s)} disabled={act.busy}>
-              apagar
+              {t('apagar', 'delete')}
             </button>
           )}
         </div>
@@ -590,7 +594,7 @@ export default function Cadastros() {
   return (
     <>
       <div className="seg seg-wide">
-        {SUBS.map((s) => (
+        {subOptions().map((s) => (
           <button key={s.id} className={sub === s.id ? 'on' : ''} onClick={() => setSub(s.id)}>
             {s.label}
           </button>

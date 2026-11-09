@@ -1,3 +1,5 @@
+import { t } from '../lib/i18n'
+import LangToggle from '../components/LangToggle'
 import { type MouseEvent as ReactMouseEvent, useEffect, useRef, useState } from 'react'
 import { TrendingUp, CalendarClock, MessagesSquare } from 'lucide-react'
 import { Link, useNavigate } from 'react-router-dom'
@@ -63,15 +65,15 @@ const TEAM = [
 ]
 
 const NAV_ITEMS = [
-  { label: 'Benefícios', sectionId: 'beneficios' },
-  { label: 'Como funciona', sectionId: 'como-funciona' },
-  { label: 'Conheça o Volt', sectionId: 'volt' },
-  { label: 'Motor de IA', sectionId: 'ia' },
-  { label: 'Rateio justo', sectionId: 'rateio' },
-  { label: 'Hardware', sectionId: 'hardware' },
-  { label: 'Rede', sectionId: 'rede' },
-  { label: 'Para o condomínio', sectionId: 'condominio' },
-  { label: 'Equipe', sectionId: 'equipe' },
+  { label: 'Benefícios', en: 'Benefits', sectionId: 'beneficios' },
+  { label: 'Como funciona', en: 'How it works', sectionId: 'como-funciona' },
+  { label: 'Conheça o Volt', en: 'Meet Volt', sectionId: 'volt' },
+  { label: 'Motor de IA', en: 'AI engine', sectionId: 'ia' },
+  { label: 'Rateio justo', en: 'Fair split', sectionId: 'rateio' },
+  { label: 'Hardware', en: 'Hardware', sectionId: 'hardware' },
+  { label: 'Rede', en: 'Network', sectionId: 'rede' },
+  { label: 'Para o condomínio', en: 'For buildings', sectionId: 'condominio' },
+  { label: 'Equipe', en: 'Team', sectionId: 'equipe' },
 ]
 
 function scrollToLandingSection(sectionId?: string) {
@@ -110,13 +112,13 @@ function Nav() {
         <div className="nav-links">
           {NAV_ITEMS.map((item) => (
             <a href={`#${item.sectionId}`} key={item.sectionId} onClick={(event) => handleSectionLink(event, item.sectionId)}>
-              {item.label}
+              {t(item.label, item.en)}
             </a>
           ))}
         </div>
+        <LangToggle />
         <Link to="/app" className="btn btn-primary btn-sm">
-          Entrar
-        </Link>
+          {t('Entrar', 'Sign in')} </Link>
       </div>
     </nav>
   )
@@ -223,7 +225,7 @@ function PhoneHero() {
           <div className="mini-app">
             <div className="mini-greet">
               <div>
-                <div className="hi">Oi, André 👋</div>
+                <div className="hi">{t('Oi, André 👋', 'Hi, André 👋')}</div>
                 <div className="sub">Apto 1204 · Ed. Aurora</div>
               </div>
               <div className="mini-avatar">AR</div>
@@ -238,16 +240,16 @@ function PhoneHero() {
             </div>
 
             <div className="mini-card">
-              <div className="k">Próxima reserva</div>
+              <div className="k">{t('Próxima reserva', 'Next booking')}</div>
               <div className="v" style={{ fontSize: 14 }}>
-                ter · 05:00 – 07:00
+                {t('ter · 05:00 – 07:00', 'Tue · 05:00 – 07:00')}
               </div>
             </div>
 
             <div className="mini-volt">
               <Volt size={38} />
               <div className="bubble">
-                Hoje o melhor horário é <b>às 3h</b>, pela metade do preço! 🌙
+                {t('Hoje o melhor horário é', 'Today the best time is')} <b>{t('às 3h', 'at 3 am')}</b>{t(', pela metade do preço! 🌙', ', half the price! 🌙')}
               </div>
             </div>
 
@@ -255,29 +257,25 @@ function PhoneHero() {
               <div className="it on">
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M3 10.5 12 3l9 7.5V21H3z" />
-                </svg>
-                Início
+                </svg> {t('Início', 'Home')}
               </div>
               <div className="it">
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <rect x="3" y="4" width="18" height="18" rx="3" />
                   <path d="M16 2v4M8 2v4M3 10h18" />
-                </svg>
-                Agendar
+                </svg> {t('Agendar', 'Book')}
               </div>
               <div className="it">
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
                   <path d="M14 2v6h6" />
-                </svg>
-                Fatura
+                </svg> {t('Fatura', 'Bill')}
               </div>
               <div className="it">
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <circle cx="12" cy="8" r="4" />
                   <path d="M4 21c0-4 3.6-6 8-6s8 2 8 6" />
-                </svg>
-                Perfil
+                </svg> {t('Perfil', 'Profile')}
               </div>
             </div>
           </div>
@@ -306,24 +304,23 @@ export default function Landing() {
             <HeroBolt size={132} style={{ top: 54, left: -132 }} rotate={-16} delay="1.4s" className="on-copy" />
             <Reveal>
               <span className="hero-badge">
-                <span className="dot" /> Recarga compartilhada para condomínios
+                <span className="dot" /> {t('Recarga compartilhada para condomínios', 'Shared charging for buildings')}
               </span>
             </Reveal>
             <Reveal delay={80}>
               <h1>
-                Carregar seu elétrico ficou <span className="accent">simples.</span>
+                {t('Carregar seu elétrico ficou', 'Charging your EV just got')} <span className="accent">{t('simples.', 'simple.')}</span>
               </h1>
             </Reveal>
             <Reveal delay={160}>
               <p className="lead">
-                Agende seu horário, acompanhe a recarga em tempo real e pague só o que usar. Sem fila, sem planilha,
-                sem discussão na reunião de condomínio.
+                {t('Agende seu horário, acompanhe a recarga em tempo real e pague só o que usar. Sem fila, sem planilha, sem discussão na reunião de condomínio.', 'Book your slot, track the charge in real time and pay only for what you use. No queue, no spreadsheet, no arguing at the building meeting.')}
               </p>
             </Reveal>
             <Reveal delay={240}>
               <div className="hero-ctas">
                 <Link to="/app" className="btn btn-primary">
-                  Experimentar o app
+                  {t('Experimentar o app', 'Try the app')}
                   <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M5 12h14M12 5l7 7-7 7" />
                   </svg>
@@ -345,11 +342,10 @@ export default function Landing() {
         <div className="container">
           <Reveal>
             <div className="section-head center">
-              <div className="eyebrow">Feito para quem divide</div>
-              <h2 className="section-title">Um carregador para todos, sem dor de cabeça.</h2>
+              <div className="eyebrow">{t('Feito para quem divide', 'Made for people who share')}</div>
+              <h2 className="section-title">{t('Um carregador para todos, sem dor de cabeça.', 'One charger for everyone, no headaches.')}</h2>
               <p className="section-sub">
-                O Chargefy organiza o uso do carregador do seu prédio como um app de delivery organiza seu jantar:
-                você escolhe, acompanha e paga — tudo na palma da mão.
+                {t('O Chargefy organiza o uso do carregador do seu prédio como um app de delivery organiza seu jantar: você escolhe, acompanha e paga — tudo na palma da mão.', 'Chargefy organizes your building charger the way a delivery app organizes your dinner: you pick, track and pay, all from your phone.')}
               </p>
             </div>
           </Reveal>
@@ -362,10 +358,9 @@ export default function Landing() {
                     <path d="M16 2v4M8 2v4M3 10h18M9.5 15.5l2 2 3.5-4" />
                   </svg>
                 </div>
-                <h3>Agende e esqueça a fila</h3>
+                <h3>{t('Agende e esqueça a fila', 'Book and skip the line')}</h3>
                 <p>
-                  Escolha o melhor horário da semana direto no app. O carregador estará esperando por você — e os
-                  horários tranquilos custam bem menos.
+                  {t('Escolha o melhor horário da semana direto no app. O carregador estará esperando por você — e os horários tranquilos custam bem menos.', 'Pick the best slot of the week right in the app. The charger will be waiting for you, and quiet hours cost a lot less.')}
                 </p>
               </div>
             </Reveal>
@@ -377,10 +372,9 @@ export default function Landing() {
                     <path d="M14 2v6h6M16 13H8M12 17H8" />
                   </svg>
                 </div>
-                <h3>Fatura sem surpresa</h3>
+                <h3>{t('Fatura sem surpresa', 'No surprise bills')}</h3>
                 <p>
-                  Cada recarga aparece detalhada, com explicação em português claro do que você pagou e por quê. Nada
-                  de rateio misterioso no boleto.
+                  {t('Cada recarga aparece detalhada, com explicação em português claro do que você pagou e por quê. Nada de rateio misterioso no boleto.', 'Every charge shows up in detail, with a plain-language explanation of what you paid and why. No mystery split on the bill.')}
                 </p>
               </div>
             </Reveal>
@@ -391,10 +385,9 @@ export default function Landing() {
                     <path d="M13 2 3 14h7l-1 8 10-12h-7l1-8z" />
                   </svg>
                 </div>
-                <h3>Economize sem esforço</h3>
+                <h3>{t('Economize sem esforço', 'Save without effort')}</h3>
                 <p>
-                  A inteligência do app aprende a rotina do prédio e mostra quando carregar sai mais barato — dá para
-                  pagar até metade do preço fora do pico.
+                  {t('A inteligência do app aprende a rotina do prédio e mostra quando carregar sai mais barato — dá para pagar até metade do preço fora do pico.', 'The app learns your building’s routine and shows when charging costs less. Off-peak can cost up to half the price.')}
                 </p>
               </div>
             </Reveal>
@@ -407,35 +400,32 @@ export default function Landing() {
         <div className="container">
           <Reveal>
             <div className="section-head center">
-              <div className="eyebrow">Como funciona</div>
-              <h2 className="section-title">Três passos e pronto.</h2>
+              <div className="eyebrow">{t('Como funciona', 'How it works')}</div>
+              <h2 className="section-title">{t('Três passos e pronto.', 'Three steps and done.')}</h2>
             </div>
           </Reveal>
           <div className="steps">
             <Reveal delay={0}>
               <div className="step">
-                <h3>Reserve seu horário</h3>
+                <h3>{t('Reserve seu horário', 'Book your slot')}</h3>
                 <p>
-                  Abra o app, veja os horários livres da semana e escolha o que combina com a sua rotina — os mais
-                  vazios vêm com desconto.
+                  {t('Abra o app, veja os horários livres da semana e escolha o que combina com a sua rotina — os mais vazios vêm com desconto.', 'Open the app, see the free slots for the week and pick what fits your routine. The emptier ones come with a discount.')}
                 </p>
               </div>
             </Reveal>
             <Reveal delay={100}>
               <div className="step">
-                <h3>Encoste o cartão e plugue</h3>
+                <h3>{t('Encoste o cartão e plugue', 'Tap your card and plug in')}</h3>
                 <p>
-                  Seu cartão do prédio identifica você no carregador. É só conectar o carro e ir viver a vida — o app
-                  acompanha tudo em tempo real.
+                  {t('Seu cartão do prédio identifica você no carregador. É só conectar o carro e ir viver a vida — o app acompanha tudo em tempo real.', 'Your building card identifies you at the charger. Just plug in the car and go live your life. The app tracks everything in real time.')}
                 </p>
               </div>
             </Reveal>
             <Reveal delay={200}>
               <div className="step">
-                <h3>Receba a fatura clara</h3>
+                <h3>{t('Receba a fatura clara', 'Get a clear bill')}</h3>
                 <p>
-                  No fim do mês chega uma fatura só sua, recarga por recarga, com o Volt explicando cada valor. Justo
-                  para você e para os vizinhos.
+                  {t('No fim do mês chega uma fatura só sua, recarga por recarga, com o Volt explicando cada valor. Justo para você e para os vizinhos.', 'At the end of the month you get a bill of your own, charge by charge, with Volt explaining each amount. Fair to you and to your neighbors.')}
                 </p>
               </div>
             </Reveal>
@@ -448,11 +438,10 @@ export default function Landing() {
         <div className="container">
           <Reveal>
             <div className="section-head center">
-              <div className="eyebrow">Seu copiloto de energia</div>
-              <h2 className="section-title">Conheça o Volt.</h2>
+              <div className="eyebrow">{t('Seu copiloto de energia', 'Your energy copilot')}</div>
+              <h2 className="section-title">{t('Conheça o Volt.', 'Meet Volt.')}</h2>
               <p className="section-sub">
-                O Volt vive dentro do app e traduz números em conversa: quanto você gastou, por que custou aquilo e
-                quando vale a pena carregar.
+                {t('O Volt vive dentro do app e traduz números em conversa: quanto você gastou, por que custou aquilo e quando vale a pena carregar.', 'Volt lives inside the app and turns numbers into conversation: how much you spent, why it cost that much and when it is worth charging.')}
               </p>
             </div>
           </Reveal>
@@ -463,15 +452,15 @@ export default function Landing() {
                 <Volt size={150} mood="wink" />
               </div>
               <div className="volt-bubbles">
-                <div className="chat-bubble user">Volt, por que minha fatura subiu esse mês?</div>
+                <div className="chat-bubble user">{t('Volt, por que minha fatura subiu esse mês?', 'Volt, why did my bill go up this month?')}</div>
                 <div>
                   <div className="volt-name" style={{ marginBottom: 6 }}>
-                    Volt · seu assistente
+                    {t('Volt · seu assistente', 'Volt · your assistant')}
                   </div>
                   <div className="chat-bubble">
-                    Duas recargas caíram na sexta às 18h, o horário mais disputado do prédio 😅 Se você trocar para{' '}
-                    <b>terça de manhãzinha</b>, a mesma energia sai <span className="hl">quase pela metade</span>.
-                    Quer que eu abra o agendamento?
+                    {t('Duas recargas caíram na sexta às 18h, o horário mais disputado do prédio 😅 Se você trocar para', 'Two charges landed on Friday at 6 pm, the busiest hour in the building 😅 If you switch to')}{' '}
+                    <b>{t('terça de manhãzinha', 'Tuesday early morning')}</b>{t(', a mesma energia sai', ', the same energy costs')} <span className="hl">{t('quase pela metade', 'almost half')}</span>{'.'}
+                    {t('Quer que eu abra o agendamento?', 'Want me to open the booking?')}
                   </div>
                 </div>
               </div>
@@ -486,11 +475,10 @@ export default function Landing() {
         <div className="container">
           <Reveal>
             <div className="section-head center">
-              <div className="eyebrow">Motor de IA</div>
-              <h2 className="section-title">O cérebro por trás do Volt.</h2>
+              <div className="eyebrow">{t('Motor de IA', 'AI engine')}</div>
+              <h2 className="section-title">{t('O cérebro por trás do Volt.', 'The brain behind Volt.')}</h2>
               <p className="section-sub" style={{ margin: '0 auto' }}>
-                Horário vazio custa até metade; horário disputado, no máximo 1,5×. Quem decide isso é a IA — em
-                três camadas simples.
+                {t('Horário vazio custa até metade; horário disputado, no máximo 1,5×. Quem decide isso é a IA — em três camadas simples.', 'Off-peak costs up to half; contested hours at most 1.5×. AI decides this, in three simple layers.')}
               </p>
             </div>
           </Reveal>
@@ -499,21 +487,21 @@ export default function Landing() {
             {[
               {
                 icon: <TrendingUp size={19} strokeWidth={1.9} />,
-                tag: 'Previsão de demanda',
-                title: 'Aprende quando o carregador é disputado',
-                body: 'Regressão sobre o histórico de uso de cada hora e dia da semana: é essa previsão que define o preço de cada recarga, mais barato no vazio e mais caro no pico. Um modelo de machine learning roda ao lado e só passa a cobrar se prever melhor.',
+                tag: t('Previsão de demanda', 'Demand forecast'),
+                title: t('Aprende quando o carregador é disputado', 'Learns when the charger is in demand'),
+                body: t('Regressão sobre o histórico de uso de cada hora e dia da semana: é essa previsão que define o preço de cada recarga, mais barato no vazio e mais caro no pico. Um modelo de machine learning roda ao lado e só passa a cobrar se prever melhor.', 'A regression over the usage history of each hour and weekday: this forecast sets the price of each charge, cheaper when quiet and pricier at peak. A machine learning model runs alongside and only takes over pricing if it predicts better.'),
               },
               {
                 icon: <CalendarClock size={19} strokeWidth={1.9} />,
-                tag: 'Recomendação',
-                title: 'Sugere a melhor hora pra você',
-                body: 'Mostra o horário mais barato do dia e, no agendamento, escolhe sozinho a janela mais barata para chegar à bateria que você quer até o seu prazo.',
+                tag: t('Recomendação', 'Recommendation'),
+                title: t('Sugere a melhor hora pra você', 'Suggests the best time for you'),
+                body: t('Mostra o horário mais barato do dia e, no agendamento, escolhe sozinho a janela mais barata para chegar à bateria que você quer até o seu prazo.', 'Shows the cheapest time of the day and, when you book, picks the cheapest window on its own to reach the battery level you want by your deadline.'),
               },
               {
                 icon: <MessagesSquare size={19} strokeWidth={1.9} />,
-                tag: 'O Volt',
-                title: 'Explica tudo em português',
-                body: 'O Volt pega esses números e transforma em conversa: por que a fatura mudou, quando vale carregar e o agendamento da recarga.',
+                tag: t('O Volt', 'Volt'),
+                title: t('Explica tudo em português', 'Explains everything in plain language'),
+                body: t('O Volt pega esses números e transforma em conversa: por que a fatura mudou, quando vale carregar e o agendamento da recarga.', 'Volt takes these numbers and turns them into conversation: why the bill changed, when it is worth charging and how to book a charge.'),
                 volt: true,
               },
             ].map((c, i) => (
@@ -535,11 +523,11 @@ export default function Landing() {
               <Volt size={46} mood="grin" />
               <div>
                 <div className="volt-name" style={{ marginBottom: 6 }}>
-                  Volt · sobre o modelo
+                  {t('Volt · sobre o modelo', 'Volt · about the model')}
                 </div>
                 <div className="chat-bubble">
-                  E aqui ninguém lucra com a sua energia: o que o horário de pico rende a mais volta como{' '}
-                  <b>desconto na taxa fixa de quem carregou fora do pico</b>. Ajudou o prédio, pagou menos. 🤝
+                  {t('E aqui ninguém lucra com a sua energia: o que o horário de pico rende a mais volta como', 'Here nobody profits from your energy: whatever peak hours bring in extra comes back as')}{' '}
+                  <b>{t('desconto na taxa fixa de quem carregou fora do pico', 'a discount on the fixed fee for whoever charged off-peak')}</b>{t('. Ajudou o prédio, pagou menos. 🤝', '. Helped the building, paid less. 🤝')}
                 </div>
               </div>
             </div>
@@ -552,11 +540,10 @@ export default function Landing() {
         <div className="container">
           <Reveal>
             <div className="section-head center">
-              <div className="eyebrow">Rateio justo</div>
-              <h2 className="section-title">Da tomada à fatura, sem mistério.</h2>
+              <div className="eyebrow">{t('Rateio justo', 'Fair split')}</div>
+              <h2 className="section-title">{t('Da tomada à fatura, sem mistério.', 'From the outlet to the bill, no mystery.')}</h2>
               <p className="section-sub" style={{ margin: '0 auto' }}>
-                O carregador mede cada sessão por morador — e o preço certo em cada horário espalha as recargas pelo
-                dia: menos fila no pico, menos carregador parado de madrugada.
+                {t('O carregador mede cada sessão por morador — e o preço certo em cada horário espalha as recargas pelo dia: menos fila no pico, menos carregador parado de madrugada.', 'The charger measures each session per resident, and the right price at each hour spreads charges across the day: shorter queues at peak, less idle charger overnight.')}
               </p>
             </div>
           </Reveal>
@@ -565,8 +552,8 @@ export default function Landing() {
             <div className="rateio-flow">
               {[
                 {
-                  label: 'Sessão',
-                  desc: 'cartão RFID identifica o morador',
+                  label: t('Sessão', 'Session'),
+                  desc: t('cartão RFID identifica o morador', 'RFID card identifies the resident'),
                   icon: (
                     <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                       <path d="M13 2 3 14h7l-1 8 10-12h-7l1-8z" />
@@ -574,8 +561,8 @@ export default function Landing() {
                   ),
                 },
                 {
-                  label: 'Medição',
-                  desc: 'kWh reais da sessão',
+                  label: t('Medição', 'Metering'),
+                  desc: t('kWh reais da sessão', 'actual kWh of the session'),
                   icon: (
                     <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                       <circle cx="12" cy="13" r="8" />
@@ -584,8 +571,8 @@ export default function Landing() {
                   ),
                 },
                 {
-                  label: 'Tarifa',
-                  desc: 'preço do horário usado',
+                  label: t('Tarifa', 'Rate'),
+                  desc: t('preço do horário usado', 'price of the hour used'),
                   icon: (
                     <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                       <path d="M3 17l5-6 4 3 6-8 3 4" />
@@ -593,8 +580,8 @@ export default function Landing() {
                   ),
                 },
                 {
-                  label: 'Fatura',
-                  desc: 'individual, por unidade',
+                  label: t('Fatura', 'Bill'),
+                  desc: t('individual, por unidade', 'individual, per unit'),
                   icon: (
                     <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                       <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
@@ -621,21 +608,21 @@ export default function Landing() {
                 <div className="receipt-head">
                   <div>
                     <b>Apto 0902</b>
-                    <span>96 kWh · madrugadas</span>
+                    <span>{t('96 kWh · madrugadas', '96 kWh · overnight')}</span>
                   </div>
-                  <span className="ptag cheap">Fora do pico</span>
+                  <span className="ptag cheap">{t('Fora do pico', 'Off-peak')}</span>
                 </div>
                 <div className="receipt-row">
-                  <span>Taxa fixa</span>
+                  <span>{t('Taxa fixa', 'Fixed fee')}</span>
                   <b>R$ 37,78</b>
                 </div>
                 <div className="receipt-row credit">
-                  <span>Crédito fora do pico</span>
+                  <span>{t('Crédito fora do pico', 'Off-peak credit')}</span>
                   <b>− R$ 9,40</b>
                 </div>
                 <div className="receipt-cut" aria-hidden="true" />
                 <div className="receipt-total">
-                  <span>Rateio do mês</span>
+                  <span>{t('Rateio do mês', 'Monthly split')}</span>
                   <b className="green">R$ 28,38</b>
                 </div>
               </div>
@@ -646,7 +633,7 @@ export default function Landing() {
                 <div className="engine-talk">
                   <Volt size={44} accessory="glasses" />
                   <div className="engine-bubble peak">
-                    Carregou no <b>pico</b>? Paga um adicional — esse horário é o que todo mundo quer. 😬
+                    {t('Carregou no', 'Charged at')} <b>{t('pico', 'peak')}</b>{t('? Paga um adicional — esse horário é o que todo mundo quer. 😬', '? You pay a surcharge, since that hour is what everyone wants. 😬')}
                   </div>
                 </div>
                 <svg className="engine-arrow" viewBox="0 0 24 44" aria-hidden="true">
@@ -655,10 +642,10 @@ export default function Landing() {
                 <div className="engine-talk flip">
                   <Volt size={44} mood="love" />
                   <div className="engine-bubble cheap">
-                    E cada centavo vira <b>crédito</b> de quem carregou no vazio. Valeu por aliviar a rede! 💚
+                    {t('E cada centavo vira', 'Every cent becomes')} <b>{t('crédito', 'credit')}</b>{t(' de quem carregou no vazio. Valeu por aliviar a rede! 💚', ' for whoever charged off-peak. Thanks for easing the grid! 💚')}
                   </div>
                 </div>
-                <div className="engine-note">ninguém lucra · o pico financia o desconto</div>
+                <div className="engine-note">{t('ninguém lucra · o pico financia o desconto', 'nobody profits · peak funds the discount')}</div>
               </div>
             </Reveal>
 
@@ -669,19 +656,19 @@ export default function Landing() {
                     <b>Apto 1401</b>
                     <span>8 kWh · qualquer hora</span>
                   </div>
-                  <span className="ptag mid">Sem crédito</span>
+                  <span className="ptag mid">{t('Sem crédito', 'No credit')}</span>
                 </div>
                 <div className="receipt-row">
-                  <span>Taxa fixa</span>
+                  <span>{t('Taxa fixa', 'Fixed fee')}</span>
                   <b>R$ 37,78</b>
                 </div>
                 <div className="receipt-row muted">
-                  <span>Crédito fora do pico</span>
+                  <span>{t('Crédito fora do pico', 'Off-peak credit')}</span>
                   <b>R$ 0,00</b>
                 </div>
                 <div className="receipt-cut" aria-hidden="true" />
                 <div className="receipt-total">
-                  <span>Rateio do mês</span>
+                  <span>{t('Rateio do mês', 'Monthly split')}</span>
                   <b>R$ 37,78</b>
                 </div>
               </div>
@@ -729,7 +716,7 @@ export default function Landing() {
               </defs>
               <ellipse cx="150" cy="260" rx="120" ry="230" fill="url(#chargerGlowGrad)" filter="url(#chargerGlowBlur)" />
             </svg>
-            <img src={hcaG2} alt="Carregador GoodWe HCA G2" className="charger-img" />
+            <img src={hcaG2} alt={t('Carregador GoodWe HCA G2', 'GoodWe HCA G2 charger')} className="charger-img" />
           </div>
           <div className="hardware-copy">
             <Reveal>
@@ -738,35 +725,34 @@ export default function Landing() {
                   <span>Powered by</span>
                   <img src={goodweLogo} alt="GoodWe" className="goodwe-logo" />
                 </div>
-                <h2 className="section-title">O carregador HCA G2, da GoodWe.</h2>
+                <h2 className="section-title">{t('O carregador HCA G2, da GoodWe.', 'The HCA G2 charger, by GoodWe.')}</h2>
                 <p className="section-sub">
-                  Por trás do app existe hardware de verdade: o Chargefy roda sobre o carregador residencial{' '}
-                  <b>HCA G2</b>, feito pela GoodWe — referência global em eletrônica de energia e uma das maiores
-                  fabricantes de inversores solares do mundo.
+                  {t('Por trás do app existe hardware de verdade: o Chargefy roda sobre o carregador residencial', 'Behind the app is real hardware: Chargefy runs on the home charger')}{' '}
+                  <b>HCA G2</b>{t(', feito pela GoodWe — referência global em eletrônica de energia e uma das maiores fabricantes de inversores solares do mundo.', ', made by GoodWe, a global reference in power electronics and one of the largest solar inverter makers in the world.')}
                 </p>
               </div>
             </Reveal>
             <Reveal delay={100}>
               <ul className="hardware-specs">
                 <li>
-                  <b>Carga AC de 7 kW, monofásica, 32 A</b>
-                  <span>Conector Tipo 2 com cabo de 6 m e controle dinâmico de carga, para não sobrecarregar a instalação do prédio.</span>
+                  <b>{t('Carga AC de 7 kW, monofásica, 32 A', '7 kW AC charging, single-phase, 32 A')}</b>
+                  <span>{t('Conector Tipo 2 com cabo de 6 m e controle dinâmico de carga, para não sobrecarregar a instalação do prédio.', 'Type 2 connector with a 6 m cable and dynamic load control, so the building wiring is not overloaded.')}</span>
                 </li>
                 <li>
                   <b>Wi-Fi, LAN, Bluetooth e RS485</b>
-                  <span>É o que permite ao app acompanhar cada sessão em tempo real; o rateio e a fatura ficam por conta do Chargefy.</span>
+                  <span>{t('É o que permite ao app acompanhar cada sessão em tempo real; o rateio e a fatura ficam por conta do Chargefy.', 'This is what lets the app follow each session in real time; the split and the bill are handled by Chargefy.')}</span>
                 </li>
                 <li>
-                  <b>Liberação por cartão RFID, app ou início automático</b>
-                  <span>Cada morador encosta o próprio cartão, e é por ele que o Chargefy sabe de quem é cada kWh.</span>
+                  <b>{t('Liberação por cartão RFID, app ou início automático', 'Unlock by RFID card, app or automatic start')}</b>
+                  <span>{t('Cada morador encosta o próprio cartão, e é por ele que o Chargefy sabe de quem é cada kWh.', 'Each resident taps their own card, and that is how Chargefy knows whose each kWh is.')}</span>
                 </li>
                 <li>
-                  <b>Integração com inversor e bateria GoodWe</b>
-                  <span>Modos de prioridade solar e solar com bateria, para carregar com a energia gerada no próprio prédio.</span>
+                  <b>{t('Integração com inversor e bateria GoodWe', 'Integration with GoodWe inverter and battery')}</b>
+                  <span>{t('Modos de prioridade solar e solar com bateria, para carregar com a energia gerada no próprio prédio.', 'Solar priority and solar-plus-battery modes, to charge with the energy the building itself generates.')}</span>
                 </li>
                 <li>
-                  <b>IP66 e proteção diferencial integrada</b>
-                  <span>Proteção residual de 30 mA AC e 6 mA DC, contra surto e com parada de emergência; vai em garagem coberta ou área externa.</span>
+                  <b>{t('IP66 e proteção diferencial integrada', 'IP66 and built-in residual current protection')}</b>
+                  <span>{t('Proteção residual de 30 mA AC e 6 mA DC, contra surto e com parada de emergência; vai em garagem coberta ou área externa.', 'Residual protection of 30 mA AC and 6 mA DC, surge protection and emergency stop; fits covered garages or outdoor areas.')}</span>
                 </li>
               </ul>
             </Reveal>
@@ -780,11 +766,10 @@ export default function Landing() {
         <div className="container">
           <Reveal>
             <div className="section-head center">
-              <div className="eyebrow">Rede Chargefy</div>
-              <h2 className="section-title">Um carregador. O bairro inteiro.</h2>
+              <div className="eyebrow">{t('Rede Chargefy', 'Chargefy network')}</div>
+              <h2 className="section-title">{t('Um carregador. O bairro inteiro.', 'One charger. The whole neighborhood.')}</h2>
               <p className="section-sub" style={{ margin: '0 auto' }}>
-                Carregador de condomínio fica parado 80% do dia. Na rede Chargefy, esse tempo ocioso vira ponto
-                de recarga para quem está por perto — e receita para quem abriu as portas.
+                {t('Carregador de condomínio fica parado 80% do dia. Na rede Chargefy, esse tempo ocioso vira ponto de recarga para quem está por perto — e receita para quem abriu as portas.', 'A building charger sits idle 80% of the day. On the Chargefy network, that idle time becomes a charging point for nearby drivers, and income for whoever opened the doors.')}
               </p>
             </div>
           </Reveal>
@@ -799,24 +784,23 @@ export default function Landing() {
           <Reveal>
             <div className="sindico-strip">
               <div>
-                <div className="eyebrow">Para síndicos e gestores</div>
-                <h3>Gestão completa. Zero planilha.</h3>
+                <div className="eyebrow">{t('Para síndicos e gestores', 'For building managers')}</div>
+                <h3>{t('Gestão completa. Zero planilha.', 'Full management. Zero spreadsheets.')}</h3>
                 <p>
-                  Do carregador à cobrança, sem conta de cabeça: o Chargefy coleta cada recarga, fecha o rateio do mês
-                  e cobra cada unidade por Pix ou boleto. Quando o pagamento cai, a fatura dá baixa sozinha.
+                  {t('Do carregador à cobrança, sem conta de cabeça: o Chargefy coleta cada recarga, fecha o rateio do mês e cobra cada unidade por Pix ou boleto. Quando o pagamento cai, a fatura dá baixa sozinha.', 'From the charger to billing, no mental math: Chargefy collects every charge, closes the month’s split and bills each unit by Pix or bank slip. When the payment lands, the bill closes itself.')}
                 </p>
               </div>
               <div className="sindico-list">
                 {[
-                  <>Recargas coletadas do carregador a cada 5 minutos, já atribuídas pelo cartão RFID</>,
-                  <>Fatura individual por unidade, fechada todo mês</>,
-                  <>Cobrança de todas as unidades por Pix ou boleto em um clique</>,
+                  <>{t('Recargas coletadas do carregador a cada 5 minutos, já atribuídas pelo cartão RFID', 'Charges collected from the charger every 5 minutes, already assigned by RFID card')}</>,
+                  <>{t('Fatura individual por unidade, fechada todo mês', 'Individual bill per unit, closed every month')}</>,
+                  <>{t('Cobrança de todas as unidades por Pix ou boleto em um clique', 'Billing every unit by Pix or bank slip in one click')}</>,
                   <span className="item-chips">
-                    Baixa automática quando o pagamento é confirmado: <span className="ptag cheap">Paga</span>{' '}
-                    <span className="ptag mid">Pendente</span> <span className="ptag peak">Atrasada</span>
+                    {t('Baixa automática quando o pagamento é confirmado:', 'Automatic update when payment is confirmed:')} <span className="ptag cheap">{t('Paga', 'Paid')}</span>{' '}
+ <span className="ptag mid">{t('Pendente', 'Pending')}</span> <span className="ptag peak">{t('Atrasada', 'Overdue')}</span>
                   </span>,
-                  <>Custo fixo dividido só entre quem usou no mês</>,
-                  <>Tarifa por horário a partir da demanda do próprio prédio</>,
+                  <>{t('Custo fixo dividido só entre quem usou no mês', 'Fixed cost split only among who used it this month')}</>,
+                  <>{t('Tarifa por horário a partir da demanda do próprio prédio', 'Hourly rate based on the building’s own demand')}</>,
                 ].map((t, i) => (
                   <div className="item" key={i}>
                     <span className="check">
@@ -838,8 +822,8 @@ export default function Landing() {
         <div className="container">
           <Reveal>
             <div className="section-head center">
-              <div className="eyebrow">Equipe</div>
-              <h2 className="section-title">Quem faz o Chargefy.</h2>
+              <div className="eyebrow">{t('Equipe', 'Team')}</div>
+              <h2 className="section-title">{t('Quem faz o Chargefy.', 'The people behind Chargefy.')}</h2>
             </div>
           </Reveal>
           <div className="team-grid">
@@ -850,7 +834,7 @@ export default function Landing() {
                   href={m.linkedin}
                   target="_blank"
                   rel="noopener noreferrer"
-                  aria-label={`LinkedIn de ${m.name}`}
+                  aria-label={t(`LinkedIn de ${m.name}`, `${m.name} on LinkedIn`)}
                 >
                   <div className="avatar">
                     {photoOf(m.slug) ? <img src={photoOf(m.slug)} alt="" loading="lazy" /> : m.initials}
@@ -875,11 +859,11 @@ export default function Landing() {
         <div className="hero-glow" />
         <Reveal>
           <h2>
-            Pronto para carregar <span style={{ color: 'var(--pink)' }}>sem estresse?</span>
+            {t('Pronto para carregar', 'Ready to charge')} <span style={{ color: 'var(--pink)' }}>{t('sem estresse?', 'stress-free?')}</span>
           </h2>
-          <p>Explore o app com dados de demonstração — agende, acompanhe e converse com o Volt.</p>
+          <p>{t('Explore o app com dados de demonstração — agende, acompanhe e converse com o Volt.', 'Explore the app with demo data: book, track and chat with Volt.')}</p>
           <Link to="/app" className="btn btn-primary">
-            Experimentar o app
+            {t('Experimentar o app', 'Try the app')}
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M5 12h14M12 5l7 7-7 7" />
             </svg>
@@ -891,7 +875,7 @@ export default function Landing() {
       <footer className="footer">
         <div className="container">
           <div className="footer-partners">
-            <span className="fp-label">Enterprise Challenge 2026 · Ciência da Computação</span>
+            <span className="fp-label">{t('Enterprise Challenge 2026 · Ciência da Computação', 'Enterprise Challenge 2026 · Computer Science')}</span>
             <div className="fp-logos">
               <img src={goodweLogo} alt="GoodWe" className="p-logo goodwe" />
               {FIAP_LOGO ? (
@@ -905,7 +889,7 @@ export default function Landing() {
           <div className="footer-inner">
             <img src={logo} alt="Chargefy" />
             <div className="meta">
-              Enterprise Challenge 2026 · Ciência da Computação · FIAP + GoodWe
+              {t('Enterprise Challenge 2026 · Ciência da Computação · FIAP + GoodWe', 'Enterprise Challenge 2026 · Computer Science · FIAP + GoodWe')}
               <br />
               Carregador GoodWe HCA G2 
             </div>

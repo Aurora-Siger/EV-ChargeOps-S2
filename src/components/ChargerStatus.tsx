@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from 'react'
 import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import chargingPile from '../assets/charging-pile.png'
 import { STATUS_LABEL, WORK_STATE_LABEL, fmtMinutes } from '../lib/semsDevice'
+import { fmtNum } from '../lib/format'
+import { t } from '../lib/i18n'
 import { fetchPowerSeries, useDeviceData, type LastCharge, type PowerPoint } from '../lib/api'
 
 const PAGE = 3
@@ -70,8 +72,9 @@ export default function ChargerStatus() {
   if (!device) {
     return (
       <div className="dev-card empty-card">
-        <b>Sem telemetria do carregador ainda.</b> O coletor da SEMS+ não salvou nenhum snapshot — confira o
-        login da SEMS no servidor (<code>/api/sems-proxy?path=/api/health</code>).
+        <b>{t('Sem telemetria do carregador ainda.', 'No charger telemetry yet.')}</b>{' '}
+        {t('O coletor da SEMS+ não salvou nenhum snapshot — confira o login da SEMS no servidor', 'The SEMS+ collector has not saved any snapshot — check the SEMS login on the server')}{' '}
+        (<code>/api/sems-proxy?path=/api/health</code>).
       </div>
     )
   }
@@ -90,19 +93,23 @@ export default function ChargerStatus() {
     <div className="dev-card">
       <div className="dev-top">
         <div className="dev-photo">
-          <img src={chargingPile} alt="Carregador GoodWe HCA G2" />
+          <img src={chargingPile} alt="GoodWe HCA G2 charger" />
         </div>
 
         <div className="dev-head">
           <span className={`dev-live ${live ? '' : 'off'}`}>
             <span className="dot" />{' '}
-            {live ? 'ao vivo' : device.collectedAt ? `última coleta ${fmtStamp(device.collectedAt.replace('T', ' '))}` : 'sem coleta'}
+            {live
+              ? t('ao vivo', 'live')
+              : device.collectedAt
+                ? `${t('última coleta', 'last sample')} ${fmtStamp(device.collectedAt.replace('T', ' '))}`
+                : t('sem coleta', 'no samples')}
           </span>
           <h3>GoodWe HCA G2</h3>
           <div className="dev-sub">
-            {[device.productModel, device.ratedPower && `${device.ratedPower} kW nominais`, device.pileGeneration && `geração ${device.pileGeneration}`]
+            {[device.productModel, device.ratedPower && `${device.ratedPower} kW ${t('nominais', 'rated')}`, device.pileGeneration && `${t('geração', 'generation')} ${device.pileGeneration}`]
               .filter(Boolean)
-              .join(' · ') || 'specs ainda não coletadas'}
+              .join(' · ') || t('specs ainda não coletadas', 'specs not collected yet')}
           </div>
           {device.sn && <div className="dev-sn">SN {device.sn}</div>}
           {device.local && <div className="dev-local">{device.local}</div>}
@@ -117,20 +124,20 @@ export default function ChargerStatus() {
 
         <div className="dev-grid">
           <div>
-            <span className="k">Potência máx.</span>
+            <span className="k">{t('Potência máx.', 'Max power')}</span>
             <span className="v">{device.chargeMaxPower !== null ? `${device.chargeMaxPower} kW` : '—'}</span>
           </div>
           <div>
-            <span className="k">SOC do carro</span>
+            <span className="k">{t('SOC do carro', 'Car SOC')}</span>
             <span className="v">{device.soc ? `${device.soc}%` : '—'}</span>
           </div>
           <div>
-            <span className="k">Próx. agendamento</span>
+            <span className="k">{t('Próx. agendamento', 'Next schedule')}</span>
             <span className="v">{device.scheduleTime?.slice(11, 16) || '—'}</span>
           </div>
           <div>
-            <span className="k">Carga dinâmica</span>
-            <span className="v">{device.dynamicLoad ? 'ativa' : 'inativa'}</span>
+            <span className="k">{t('Carga dinâmica', 'Dynamic load')}</span>
+            <span className="v">{device.dynamicLoad ? t('ativa', 'on') : t('inativa', 'off')}</span>
           </div>
         </div>
       </div>
@@ -140,18 +147,18 @@ export default function ChargerStatus() {
       {greenPct !== null && (
         <div className="dev-green">
           <div className="dev-green-head">
-            <span>Origem da energia nos últimos 7 dias · {lastWeek.length} {lastWeek.length === 1 ? 'sessão' : 'sessões'}</span>
-            <b>{greenPct}% solar</b>
+            <span>{t('Origem da energia nos últimos 7 dias', 'Energy source over the last 7 days')} · {lastWeek.length} {lastWeek.length === 1 ? t('sessão', 'session') : t('sessões', 'sessions')}</span>
+            <b>{greenPct}% {t('solar', 'solar')}</b>
           </div>
           <div className="dev-green-bar">
             <div className="fill" style={{ width: `${greenPct}%` }} />
           </div>
           <div className="dev-green-legend">
             <span>
-              <i className="g" /> Solar {green.toFixed(1)} kWh
+              <i className="g" /> {t('Solar', 'Solar')} {fmtNum(green, 1)} kWh
             </span>
             <span>
-              <i className="r" /> Rede {grid.toFixed(2)} kWh
+              <i className="r" /> {t('Rede', 'Grid')} {fmtNum(grid, 2)} kWh
             </span>
           </div>
         </div>
@@ -159,24 +166,24 @@ export default function ChargerStatus() {
 
       <div className="dev-sessions">
         <div className="dev-sessions-head">
-          <span className="dev-block-label">Sessões coletadas do carregador</span>
+          <span className="dev-block-label">{t('Sessões coletadas do carregador', 'Sessions collected from the charger')}</span>
           {pages > 1 && (
             <span className="dev-pager">
-              <button onClick={() => setPage((p) => Math.max(0, p - 1))} disabled={page === 0} aria-label="Anteriores">
+              <button onClick={() => setPage((p) => Math.max(0, p - 1))} disabled={page === 0} aria-label={t('Anteriores', 'Previous')}>
                 ‹
               </button>
               {page + 1}/{pages}
               <button
                 onClick={() => setPage((p) => Math.min(pages - 1, p + 1))}
                 disabled={page === pages - 1}
-                aria-label="Próximas"
+                aria-label={t('Próximas', 'Next')}
               >
                 ›
               </button>
             </span>
           )}
         </div>
-        {rows.length === 0 && <div className="empty-inline">Nenhuma sessão coletada ainda.</div>}
+        {rows.length === 0 && <div className="empty-inline">{t('Nenhuma sessão coletada ainda.', 'No sessions collected yet.')}</div>}
         {rows.map((c) => (
           <div className="act" key={c.start}>
             <div className="info">
@@ -184,13 +191,17 @@ export default function ChargerStatus() {
                 {c.start} → {c.end}
               </div>
               <div className="s">
-                {fmtMinutes(c.min)} plugado · {c.km.toFixed(0)} km de autonomia
+                {fmtMinutes(c.min)} {t('plugado', 'plugged in')} · {c.km.toFixed(0)} km {t('de autonomia', 'of range')}
               </div>
             </div>
             <span className={`ptag ${c.grid < 0.1 ? 'cheap' : 'mid'}`} style={{ marginRight: 10 }}>
-              {c.green + c.grid === 0 ? 'sem energia' : c.grid < 0.1 ? '100% solar' : `${Math.round((c.green / (c.green + c.grid)) * 100)}% solar`}
+              {c.green + c.grid === 0
+                ? t('sem energia', 'no energy')
+                : c.grid < 0.1
+                  ? t('100% solar', '100% solar')
+                  : `${Math.round((c.green / (c.green + c.grid)) * 100)}% ${t('solar', 'solar')}`}
             </span>
-            <div className="val">{c.kwh.toFixed(2).replace('.', ',')} kWh</div>
+            <div className="val">{fmtNum(c.kwh, 2)} kWh</div>
           </div>
         ))}
       </div>
@@ -227,7 +238,7 @@ function LastChargeBlock({ lc }: { lc: LastCharge }) {
     <div className="last-charge">
       <div className="lc-cols">
         <div>
-          <div className="lc-head">Último carregamento</div>
+          <div className="lc-head">{t('Último carregamento', 'Last charge')}</div>
           <div className="lc-duration">
             {Math.floor(lc.chargeTimeLength / 60)}
             <small>h</small> {lc.chargeTimeLength % 60}
@@ -243,21 +254,21 @@ function LastChargeBlock({ lc }: { lc: LastCharge }) {
         <div>
           <div className="lc-stats">
             <div>
-              <span className="v">{lc.currentChargeQuantity.toFixed(2).replace('.', ',')}</span>
+              <span className="v">{fmtNum(lc.currentChargeQuantity, 2)}</span>
               <span className="k">kWh</span>
             </div>
             <div>
-              <span className="v">{lc.mileage.toFixed(2).replace('.', ',')}</span>
+              <span className="v">{fmtNum(lc.mileage, 2)}</span>
               <span className="k">km</span>
             </div>
             <div>
               <span className="v">{lc.gun ?? '—'}</span>
-              <span className="k">porta</span>
+              <span className="k">{t('porta', 'gun')}</span>
             </div>
           </div>
           {lc.cardNumber && (
             <div className="lc-card-id">
-              ID do cartão · <b>{lc.cardNumber}</b>
+              {t('ID do cartão', 'Card ID')} · <b>{lc.cardNumber}</b>
             </div>
           )}
         </div>
@@ -267,18 +278,18 @@ function LastChargeBlock({ lc }: { lc: LastCharge }) {
         <div className="lc-chart">
           <div className="lc-chart-head">
             <span>
-              Potência de carregamento
+              {t('Potência de carregamento', 'Charging power')}
               {isEstimated && (
                 <>
                   {' '}
-                  <span className="lc-chart-estimate" title="A SEMS não devolveu a série temporal desta sessão — a curva abaixo é reconstruída a partir do pico e da média reais.">
-                    (estimado)
+                  <span className="lc-chart-estimate" title={t('A SEMS não devolveu a série temporal desta sessão — a curva abaixo é reconstruída a partir do pico e da média reais.', 'SEMS did not return this session’s time series; the curve below is rebuilt from the real peak and average.')}>
+                    ({t('estimado', 'estimated')})
                   </span>
                 </>
               )}
             </span>
             <span className="lc-chart-max">
-              pico {lc.maxCharP.toFixed(1)} kW · média {lc.averCharP.toFixed(1)} kW
+              {t('pico', 'peak')} {fmtNum(lc.maxCharP, 1)} kW · {t('média', 'average')} {fmtNum(lc.averCharP, 1)} kW
             </span>
           </div>
           <div className="lc-chart-bg">
