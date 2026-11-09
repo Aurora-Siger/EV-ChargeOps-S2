@@ -11,6 +11,8 @@ const body = z.object({
   visitorId: z.string().min(8).max(100),
   conversationId: z.string().optional(),
   message: z.string().min(1).max(2000),
+  // idioma da interface; o Volt responde nele
+  lang: z.enum(['pt', 'en']).optional(),
 })
 
 // Barreira de custo/abuso da rota (ver docs/ARCHITECTURE.md §6, "Custo/abuso"): 7 mensagens
@@ -22,7 +24,7 @@ const MAX_PER_IP_PER_MINUTE = 30
 const limiter = createRateLimiter(60_000)
 
 export const agentRoutes = new Hono().post('/chat', async (c) => {
-  const { visitorId, conversationId, message } = body.parse(await c.req.json())
+  const { visitorId, conversationId, message, lang } = body.parse(await c.req.json())
   const session = await auth.api.getSession({ headers: c.req.raw.headers })
   const who = session
     ? { id: session.user.id, role: (session.user as { role?: string }).role ?? 'USER', authenticated: true }
@@ -31,5 +33,5 @@ export const agentRoutes = new Hono().post('/chat', async (c) => {
   if (!limiter.hit(who.id, MAX_PER_MINUTE) || (ip && !limiter.hit(`ip:${ip}`, MAX_PER_IP_PER_MINUTE))) {
     throw new AppError('Muitas mensagens em pouco tempo, espera um minuto', 429, 'RATE_LIMITED')
   }
-  return c.json(await agentService.chat(who, conversationId, message))
+  return c.json(await agentService.chat(who, conversationId, message, lang))
 })

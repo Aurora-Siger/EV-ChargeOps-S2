@@ -31,6 +31,8 @@ class ChatRequest(BaseModel):
     authenticated: bool = False
     conversation_id: str | None = None
     message: str = Field(min_length=1, max_length=2000)
+    # idioma da interface: o Volt responde nele
+    lang: str = Field(default="pt", pattern="^(pt|en)$")
 
 
 class ChatResponse(BaseModel):
@@ -57,7 +59,7 @@ def forecast(req: ForecastRequest) -> ForecastResponse:
 def chat(req: ChatRequest, db: Annotated[Session, Depends(get_db)]) -> ChatResponse:
     try:
         conv_id, reply, action = agent_service.chat(
-            db, req.user_id, req.conversation_id, req.message, authenticated=req.authenticated
+            db, req.user_id, req.conversation_id, req.message, authenticated=req.authenticated, lang=req.lang
         )
     except LookupError:
         raise HTTPException(status_code=404, detail="conversation not found")

@@ -19,7 +19,7 @@ def _navigation_action(messages: list) -> str | None:
 
 
 def chat(
-    db: Session, user_id: str, conversation_id: str | None, text: str, authenticated: bool = False
+    db: Session, user_id: str, conversation_id: str | None, text: str, authenticated: bool = False, lang: str = "pt"
 ) -> tuple[str, str, str | None]:
     if conversation_id:
         # Autorização por recurso: a conversa precisa ser do usuário autenticado.
@@ -47,8 +47,10 @@ def chat(
     # sem login) conversa com o Volt só de dúvidas, que não tem tool nenhuma. A mensagem crua
     # também vai junto: o schedule_charge lê dela se o horário é início ou prazo.
     graph = agent if authenticated else visitor_agent
+    # Só o que o modelo lê leva o lembrete de idioma; o histórico salvo e o user_message ficam crus.
+    llm_text = f"{text}\n\n[Reply in English.]" if lang == "en" else text
     result = graph.invoke(
-        {"messages": [(m.role, m.content) for m in history] + [("user", text)]},
+        {"messages": [(m.role, m.content) for m in history] + [("user", llm_text)]},
         config={"configurable": {"user_id": user_id if authenticated else None, "user_message": text}},
     )
     reply = str(result["messages"][-1].content)

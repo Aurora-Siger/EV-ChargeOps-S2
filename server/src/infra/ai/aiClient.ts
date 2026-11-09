@@ -35,7 +35,7 @@ export interface AiForecast {
 export const aiClient = {
   quote: (features: unknown) => post<AiQuote>('/pricing/quote', features, 2_000),
   forecast: (hoursAhead?: number) => post<AiForecast>('/pricing/forecast', { hoursAhead }, 3_000),
-  chat: (payload: { userId: string; role: string; authenticated: boolean; conversationId?: string; message: string }) =>
+  chat: (payload: { userId: string; role: string; authenticated: boolean; conversationId?: string; message: string; lang?: 'pt' | 'en' }) =>
     post<{ conversation_id: string; reply: string; action: string | null }>(
       '/agent/chat',
       {
@@ -44,6 +44,7 @@ export const aiClient = {
         authenticated: payload.authenticated,
         conversation_id: payload.conversationId,
         message: payload.message,
+        lang: payload.lang,
       },
       30_000,
     ),
