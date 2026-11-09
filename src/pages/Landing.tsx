@@ -792,7 +792,7 @@ export default function Landing() {
               </div>
               <div className="sindico-list">
                 {[
-                  <>{t('Recargas coletadas do carregador a cada 5 minutos, já atribuídas pelo cartão RFID', 'Charges collected from the charger every 5 minutes, already assigned by RFID card')}</>,
+                  <>{t('Recargas coletadas do carregador, já atribuídas pelo cartão RFID', 'Charges collected from the charger, already assigned by RFID card')}</>,
                   <>{t('Fatura individual por unidade, fechada todo mês', 'Individual bill per unit, closed every month')}</>,
                   <>{t('Cobrança de todas as unidades por Pix ou boleto em um clique', 'Billing every unit by Pix or bank slip in one click')}</>,
                   <span className="item-chips">
