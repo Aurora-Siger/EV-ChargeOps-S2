@@ -8301,20 +8301,31 @@ img {
   color: var(--text);
 }
 
-/* celular: canto compacto em pílula e espaço reservado para não cobrir o título */
+/* celular: no app o idioma e o tema ficam em Perfil > Preferências, sem botão flutuante */
 @media (max-width: 899px) {
-  .theme-corner {
-    top: 8px;
-    right: 10px;
-    gap: 2px;
-    padding: 2px;
-    border-radius: 999px;
-    background: rgb(var(--ink) / 0.07);
-    -webkit-backdrop-filter: blur(10px);
-    backdrop-filter: blur(10px);
+  .app-root .theme-corner {
+    display: none;
   }
+}
 
-  .app-root .screen-anim {
-    padding-top: 34px;
+.pref-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 0;
+}
+
+.pref-row + .pref-row {
+  border-top: 1px solid var(--bd);
+}
+
+.pref-row .seg {
+  margin: 0;
+}
+
+@media (min-width: 900px) {
+  .pref-card {
+    display: none;
   }
 }

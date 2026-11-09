@@ -2,7 +2,7 @@ import { useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import logo from '../../assets/logo.png'
 import { fmtNum } from '../../lib/format'
-import { labels, t } from '../../lib/i18n'
+import { labels, setLang, t, useLang } from '../../lib/i18n'
 import { api } from '../../lib/http'
 import type { JoinRequestStatus, Vehicle } from '../../lib/types'
 import { I } from './icons'
@@ -20,6 +20,27 @@ const REQUEST_LABEL: Record<JoinRequestStatus, string> = labels({
 
 type VehicleForm = { model: string; plate: string; capacityKwh: string; rangeKm: string; maxChargeKw: string }
 const EMPTY: VehicleForm = { model: '', plate: '', capacityKwh: '', rangeKm: '', maxChargeKw: '7' }
+
+/** Idioma no celular (no desktop fica no canto da tela). */
+function PreferencesCard() {
+  const lang = useLang()
+  return (
+    <div className="c pref-card">
+      <div className="c-label">{t('Preferências', 'Preferences')}</div>
+      <div className="pref-row">
+        <span>{t('Idioma', 'Language')}</span>
+        <div className="seg">
+          <button type="button" className={lang === 'pt' ? 'on' : ''} onClick={() => setLang('pt')}>
+            PT
+          </button>
+          <button type="button" className={lang === 'en' ? 'on' : ''} onClick={() => setLang('en')}>
+            EN
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
 
 /** Foto de um modelo do catálogo; cai pro ícone genérico se o link (hotlink externo) não carregar. */
 function PresetThumb({ preset }: { preset: VehiclePreset }) {
@@ -258,6 +279,8 @@ export default function Perfil({
         </div>
 
         <DocumentCard />
+
+        <PreferencesCard />
 
         <div className="c">
           <div className="c-label row-between">
